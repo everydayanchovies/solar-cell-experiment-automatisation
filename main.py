@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 from matplotlib import rc
 from pythondaq.controllers.arduino_device import ArduinoVISADevice
+import csv
 
 rc('text', usetex=True)
 
@@ -36,3 +37,11 @@ plt.plot([U for U in U_I_pairs], [I for I in U_I_pairs])
 plt.xlabel(r"$U_{led}$")
 plt.ylabel(r"$I_{led}$")
 plt.show()
+
+# save gathered data to csv
+with open("data/u,i-data-led.csv", "w", newline="") as csv_file:
+    field_names = ["U", "I"]
+    writer = csv.DictWriter(csv_file, fieldnames=field_names)
+    writer.writeheader()
+    for (U, I) in U_I_pairs:
+        writer.writerow({"U": U, "I": I})
