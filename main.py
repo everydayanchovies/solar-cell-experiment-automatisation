@@ -5,46 +5,51 @@ from matplotlib import rc
 rc('text', usetex=True)
 
 
-RESOLUTION = 1024
-V_OUT = 3.3
+class ArduinoVISADevice:
+    def __init__(self, port):
+        self.port = port
+        self.rm = pyvisa.ResourceManager("@py")
+        self.device = self.open_device()
 
-rm = pyvisa.ResourceManager("@py")
+    def open_device(self):
+        return self.rm.open_resource(
+            resource_name=self.port,
+            read_termination="\r\n",
+            write_termination="\n"
+        )
 
-device = rm.open_resource(
-    "ASRL/dev/cu.usbmodem1301::INSTR",
-    read_termination="\r\n",
-    write_termination="\n"
-)
+    def set_output_voltage(self, channel, value):
+        self.device.query(f"OUT:CH{channel}:VOLT {value}")
 
-# 5.2
-# for i in range(0, 1024):
-#     raw_ch0 = float(device.query(f"OUT:CH0 {i}"))
-#     volt_ch0 = (raw_ch0 / RESOLUTION) * V_OUT
-#
-#     raw_ch2 = float(device.query("MEAS:CH2?"))
-#     volt_ch2 = (raw_ch2 / RESOLUTION) * V_OUT
-#
-#     print("%d %.1f %d %.1f" % (raw_ch0, volt_ch0, raw_ch2, volt_ch2))
+    def get_output_voltage(self, channel):
+        return float(self.device.query(f"OUT:CH{channel}:VOLT?"))
 
-# 5.3
+    def get_input_voltage(self, channel):
+        return float(self.device.query(f"MEAS:CH{channel}:VOLT?"))
+
+
+PORT = "ASRL/dev/cu.usbmodem1301::INSTR"
+
+device = ArduinoVISADevice(port=PORT)
 
 # gather U, I measurements
 U_I_pairs = []
 for i in range(0, 1024):
-    raw_ch0 = float(device.query(f"OUT:CH0 {i}"))
-    U_ch0 = (raw_ch0 / RESOLUTION) * V_OUT
+    U = (i/1024)*3.3
+    device.set_output_voltage(0, U)
 
-    raw_ch2 = float(device.query("MEAS:CH2?"))
-    U_ch2 = (raw_ch2 / RESOLUTION) * V_OUT
+    U_ch0 = device.get_input_voltage(1)
+    U_ch2 = device.get_input_voltage(2)
 
     U_led = U_ch0 - U_ch2
 
-    I_led = U_led / 200
+    R = 200
+    I_led = U_led / R
 
     U_I_pairs.append((U_led, I_led))
 
 # turn off the led
-device.query(f"OUT:CH0 0")
+device.set_output_voltage(0, 0)
 
 # print gathered data
 for (U_led, I_led) in U_I_pairs:
@@ -55,4 +60,3 @@ plt.plot([U for U in U_I_pairs], [I for I in U_I_pairs])
 plt.xlabel(r"$U_{led}$")
 plt.ylabel(r"$I_{led}$")
 plt.show()
-
