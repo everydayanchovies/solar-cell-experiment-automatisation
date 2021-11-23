@@ -11,6 +11,7 @@ PyVISA-py = "^0.5.2"
 pyserial = "^3.5"
 matplotlib = "^3.5.0"
 click = "^8.0.3"
+PyVISA = "^1.11.3"
 
 [tool.poetry.dev-dependencies]
 
