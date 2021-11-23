@@ -1,6 +1,3 @@
-import datetime
-import uuid
-
 import matplotlib.pyplot as plt
 from matplotlib import rc
 from pythondaq.controllers.arduino_device import ArduinoVISADevice
@@ -45,6 +42,7 @@ plt.show()
 class LEDUIDataPoint(IsDescription):
     U = Float64Col()
     I = Float64Col()
+    # ik besloot dit niet te implementeren
     # measured_at = TimeCol()
 
 
@@ -57,6 +55,7 @@ with open_file("data/u,i-data-led.h5", "w") as h5_file:
         measurement = table.row
         measurement["U"] = U
         measurement["I"] = I
+        # ik besloot dit niet te implementeren
         # measurement["measured_at"] = datetime.datetime.now()
         measurement.append()
 

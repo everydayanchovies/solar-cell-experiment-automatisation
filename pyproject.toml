@@ -1,0 +1,22 @@
+[tool.poetry]
+name = "pythondaq"
+version = "0.1.0"
+description = ""
+authors = ["everydayanchovies <4356678+everydayanchovies@users.noreply.github.com>"]
+
+[tool.poetry.dependencies]
+python = ">=3.9,<3.11"
+numpy = "^1.21.4"
+PyVISA-py = "^0.5.2"
+pyserial = "^3.5"
+matplotlib = "^3.5.0"
+click = "^8.0.3"
+
+[tool.poetry.dev-dependencies]
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.scripts]
+diode = "pythondaq.views.main:cmd_group"
