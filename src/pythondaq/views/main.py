@@ -1,6 +1,6 @@
 import click
 
-from pythondaq.controllers.meta_manager import MetaManager
+from pythondaq.models.diode_experiment import DiodeExperiment
 
 
 @click.group()
@@ -23,7 +23,7 @@ def ls(search):
     else:
         print(f"The following devices match '{search}'")
 
-    [print(p) for p in MetaManager().list_devices() if not search or search.lower() in p.lower()]
+    [print(d) for d in DiodeExperiment().list_devices(search)]
 
 
 @cmd_group.command()
@@ -41,19 +41,16 @@ def info(search, search_arg):
     if not q:
         return print("Please specify which device to communicate with. For example: 'diode info arduino'")
 
-    meta_man = MetaManager()
+    res = DiodeExperiment().device_info(q)
 
-    devices = meta_man.list_devices()
-    devices = [p for p in devices if q.lower() in p.lower()]
-
-    if not devices:
+    if not res:
         return print("No devices found for your search query, try searching less specifically")
 
-    if len(devices) > 1:
-        print(f"Your query yielded {len(devices)} devices. Please specify a single device.")
-        return [print(p) for p in devices]
+    if type(res) is list:
+        print(f"Your query yielded {len(res)} devices. Please specify a single device.")
+        return [print(d) for d in res]
 
-    print(meta_man.info(devices[0]))
+    print(res)
 
 
 if __name__ == "__main__":
