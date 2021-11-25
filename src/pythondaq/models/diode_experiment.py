@@ -6,7 +6,7 @@ class DiodeExperiment:
     CH_U1 = 1
     CH_U2 = 2
 
-    R = 220
+    R = 220.0
 
     def __init__(self, port):
         self.visa_controller = ArduinoVISADevice(port)
@@ -15,4 +15,4 @@ class DiodeExperiment:
         if voltage > 0.0:
             self.visa_controller.set_output_voltage(self.CH_VOUT, voltage)
 
-        return self.visa_controller.get_output_voltage(self.CH_U2) / self.R
+        return self.visa_controller.get_input_voltage(self.CH_U2) / self.R

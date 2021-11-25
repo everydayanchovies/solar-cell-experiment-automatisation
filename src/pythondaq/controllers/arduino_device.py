@@ -65,21 +65,39 @@ class ArduinoVISADevice:
         """
         self.device.query(f"OUT:CH{channel}:VOLT {value}")
 
-    def get_output_voltage(self, channel) -> float:
+    def get_output_voltage(self, channel, v=False) -> float:
         """
         Get the output voltage of a certain channel.
+        :param v: verbose
         :type channel: int
         :param channel: The channel of which the output voltage will be read. For example, 1.
         :return: The output voltage of the specified channel.
         """
-        return float(self.device.query(f"OUT:CH{channel}:VOLT?"))
+        q = f"OUT:CH{channel}:VOLT?"
+        if v:
+            print(f"SEND COMMAND: {q}")
 
-    def get_input_voltage(self, channel) -> float:
+        res = self.device.query(q)
+        if v:
+            print(f"RECEIVED RESPONSE: {res}")
+
+        return float(res)
+
+    def get_input_voltage(self, channel, v=False) -> float:
         """
         Get the input voltage of a certain channel.
+        :param v: verbose
         :type channel: int
         :param channel: The channel of which the input voltage will be read. For example, 1.
         :return: The input voltage of the specified channel.
         """
-        return float(self.device.query(f"MEAS:CH{channel}:VOLT?"))
+        q = f"MEAS:CH{channel}:VOLT?"
+        if v:
+            print(f"SEND COMMAND: {q}")
+
+        res = self.device.query(q)
+        if v:
+            print(f"RECEIVED RESPONSE: {res}")
+
+        return float(res)
 
