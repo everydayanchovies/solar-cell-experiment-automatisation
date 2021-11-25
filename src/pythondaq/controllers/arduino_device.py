@@ -17,6 +17,20 @@
 """
 
 import pyvisa
+from pyvisa.highlevel import ResourceInfo
+
+
+def resource_manager():
+    return pyvisa.ResourceManager("@py")
+
+
+def list_devices(filter_q) -> list[str]:
+    return [d for d in resource_manager().list_resources()
+            if not filter_q or filter_q.lower() in d.lower()]
+
+
+def device_info(resource_name) -> ResourceInfo:
+    return resource_manager().resource_info(resource_name)
 
 
 class ArduinoVISADevice:
@@ -27,7 +41,7 @@ class ArduinoVISADevice:
         :param port: The port corresponding to the arduino device. For example: ASRL/dev/cu.usbmodem1301::INSTR
         """
         self.port = port
-        self.rm = pyvisa.ResourceManager("@py")
+        self.rm = resource_manager()
         self.device = self.__open_device()
 
     def __open_device(self) -> pyvisa.Resource:
