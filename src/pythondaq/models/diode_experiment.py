@@ -36,8 +36,8 @@ def plot_current_against_voltage(u, u_err, i, i_err):
 
 
 class DiodeExperiment:
-    def __init__(self, port):
-        self.visa = ArduinoVISADevice(port)
+    def __init__(self, port: str, dummy: bool = False):
+        self.visa = ArduinoVISADevice(port, dummy)
 
     def measure_led_current_and_voltage(self, output_voltage: float, repeat: int = 1) \
             -> ((float, float), (float, float)):

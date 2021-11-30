@@ -1,4 +1,5 @@
 from typing import Union
+from rich import print
 
 import click
 
@@ -6,8 +7,11 @@ from pythondaq.models.diode_experiment import list_devices, device_info, DiodeEx
     plot_current_against_voltage
 
 
+DUMMY_DEVICE = True
+
+
 def port_for_search_query(search_q) -> Union[str, None]:
-    matching_devices = list_devices(search_q)
+    matching_devices = list_devices(search_q, dummy=DUMMY_DEVICE)
 
     if not matching_devices:
         print("No devices found for your search query, try searching less specifically")
@@ -41,7 +45,7 @@ def ls(search):
     else:
         print(f"The following devices match '{search}'")
 
-    [print(d) for d in list_devices(search)]
+    [print(d) for d in list_devices(search, dummy=DUMMY_DEVICE)]
 
 
 @cmd_group.command()
@@ -95,7 +99,7 @@ def measure(port, voltage, repeat):
     if voltage:
         print(f"V_out has been set to {voltage:.2f} V.")
 
-    _, (i, i_err) = DiodeExperiment(port).measure_led_current_and_voltage(voltage, repeat)
+    _, (i, i_err) = DiodeExperiment(port, dummy=DUMMY_DEVICE).measure_led_current_and_voltage(voltage, repeat)
     print(f"The current running through the LED is {i:.6f}+-{i_err:.6f} A.")
 
 
@@ -156,7 +160,7 @@ def scan(port, start, end, step, output, repeat, graph):
     if not port:
         return
 
-    m = DiodeExperiment(port)
+    m = DiodeExperiment(port, dummy=DUMMY_DEVICE)
 
     rows = []
     for ((u, u_err), (i, i_err)) in m.scan_current_through_led(start, end, step, repeat):
