@@ -2,7 +2,8 @@ from typing import Union
 
 import click
 
-from pythondaq.models.diode_experiment import list_devices, device_info, DiodeExperiment, save_data_to_csv
+from pythondaq.models.diode_experiment import list_devices, device_info, DiodeExperiment, save_data_to_csv, \
+    plot_current_against_voltage
 
 
 def port_for_search_query(search_q) -> Union[str, None]:
@@ -144,7 +145,15 @@ def measure(port, voltage, repeat):
     required=False,
     default=1,
 )
-def scan(port, start, end, step, output, repeat):
+@click.option(
+    "-v",
+    "--plot",
+    help="Plot the measurement",
+    type=click.BOOL,
+    required=False,
+    default=False,
+)
+def scan(port, start, end, step, output, repeat, plot):
     port = port_for_search_query(port)
     if not port:
         return
@@ -158,6 +167,10 @@ def scan(port, start, end, step, output, repeat):
 
     if output:
         save_data_to_csv(output, ["U", "U_err", "I", "I_err"], rows)
+
+    if plot:
+        u, u_err, i, i_err = zip(*rows)
+        plot_current_against_voltage(u, u_err, i, i_err)
 
 
 if __name__ == "__main__":

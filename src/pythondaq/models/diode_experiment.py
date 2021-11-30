@@ -1,6 +1,7 @@
 import csv
 
 import numpy as np
+from matplotlib import pyplot as plt
 
 from pythondaq.controllers.arduino_device import list_devices, device_info, ArduinoVISADevice
 
@@ -24,6 +25,14 @@ def save_data_to_csv(filepath: str, headers: list[str], data: list[tuple]):
             return row
 
         [writer.writerow(make_row(data_row)) for data_row in data]
+
+
+def plot_current_against_voltage(u, u_err, i, i_err):
+    plt.scatter(u, i)
+    plt.errorbar(u, i, xerr=u_err, yerr=i_err, linestyle='')
+    plt.xlabel(r"$U_{led}$ [V]")
+    plt.ylabel(r"$I_{led}$ [A]")
+    plt.show()
 
 
 class DiodeExperiment:
