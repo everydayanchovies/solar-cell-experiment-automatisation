@@ -15,6 +15,7 @@ PyVISA = "^1.11.3"
 rich = "^10.15.1"
 
 [tool.poetry.dev-dependencies]
+nsp2visasim = "^1.1.0"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

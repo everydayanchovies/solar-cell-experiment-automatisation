@@ -85,6 +85,14 @@ python-dateutil = ">=2.7"
 setuptools_scm = ">=4"
 
 [[package]]
+name = "nsp2visasim"
+version = "1.1.0"
+description = ""
+category = "dev"
+optional = false
+python-versions = ">=3.8,<4.0"
+
+[[package]]
 name = "numpy"
 version = "1.21.4"
 description = "NumPy is the fundamental package for array computing with Python."
@@ -238,7 +246,7 @@ python-versions = ">=3.6"
 [metadata]
 lock-version = "1.1"
 python-versions = ">=3.9,<3.11"
-content-hash = "f5ac071f90266c15d769740340233c4f91d6cbf3e202645bbc8c07e47a9ef8b8"
+content-hash = "60e707ca81272a9c083754b469cf97067abb187ffda58ceca1fbc0e5e4454a5a"
 
 [metadata.files]
 click = [
@@ -343,6 +351,10 @@ matplotlib = [
     {file = "matplotlib-3.5.0-pp37-pypy37_pp73-manylinux_2_12_x86_64.manylinux2010_x86_64.whl", hash = "sha256:dc8c5c23e7056e126275dbf29efba817b3d94196690930d0968873ac3a94ab82"},
     {file = "matplotlib-3.5.0-pp37-pypy37_pp73-win_amd64.whl", hash = "sha256:a0ea10faa3bab0714d3a19c7e0921279a68d57552414d6eceaea99f97d7735db"},
     {file = "matplotlib-3.5.0.tar.gz", hash = "sha256:38892a254420d95594285077276162a5e9e9c30b6da08bdc2a4d53331ad9a6fa"},
+]
+nsp2visasim = [
+    {file = "nsp2visasim-1.1.0-py3-none-any.whl", hash = "sha256:33a296793955b7827f386cfe455d7b40e9f1ee5715a63156eea30f98f5e038ba"},
+    {file = "nsp2visasim-1.1.0.tar.gz", hash = "sha256:e1af5131d336a30c66e22dc42e53b795ca3e23344656f5b6c96b74e8d67acb09"},
 ]
 numpy = [
     {file = "numpy-1.21.4-cp310-cp310-macosx_10_9_universal2.whl", hash = "sha256:8890b3360f345e8360133bc078d2dacc2843b6ee6059b568781b15b97acbe39f"},
