@@ -1,5 +1,4 @@
 import csv
-from typing import Generator
 
 import numpy as np
 
@@ -31,31 +30,36 @@ class DiodeExperiment:
     def __init__(self, port):
         self.visa = ArduinoVISADevice(port)
 
-    def measure_led_current_and_voltage(self, voltage: float, repeat: int = 1) -> (float, float):
-        u_i_pairs = [res for res in self.__recursive_led_measurement(voltage, repeat) if res]
-
-        print(u_i_pairs)
-
-        return 0, 0
-
-    def __recursive_led_measurement(self, output_voltage: float, repeat: int = 1):
-        if repeat == 0:
-            return False
-
+    def measure_led_current_and_voltage(self, output_voltage: float, repeat: int = 1) \
+            -> ((float, float), (float, float)):
         if output_voltage > 0.0:
             self.visa.set_output_voltage(CH_VOUT, output_voltage)
+
+        u_i_pairs = [res for res in self.__recursive_led_measurement(repeat) if res]
+
+        voltage = [u for (u, _) in u_i_pairs]
+        current = [i for (_, i) in u_i_pairs]
+
+        def value_with_uncertainty(values):
+            return np.mean(values), np.std(values) / np.sqrt(len(values))
+
+        return value_with_uncertainty(voltage), value_with_uncertainty(current)
+
+    def __recursive_led_measurement(self, repeat: int = 1):
+        if repeat == 0:
+            return False
 
         voltage = self.visa.get_input_voltage(CH_U1) - self.visa.get_input_voltage(CH_U2)
         yield voltage, self.visa.get_input_voltage(CH_U2) / R
 
-        yield from self.__recursive_led_measurement(voltage, repeat - 1)
+        yield from self.__recursive_led_measurement(repeat - 1)
 
-    def scan_current_through_led(self, start_voltage: float, end_voltage: float, step_size: float):
+    def scan_current_through_led(self, start_voltage: float, end_voltage: float, step_size: float, repeat: int = 1):
         if end_voltage < start_voltage:
             raise ValueError(f"The start voltage ({start_voltage:.2f}) cannot be larger than the end voltage "
                              f"({end_voltage:.2f}). Try swapping the start and end voltage.")
 
         for v in np.arange(start_voltage, end_voltage + step_size, step_size):
-            yield self.measure_led_current_and_voltage(v)
+            yield self.measure_led_current_and_voltage(v, repeat)
 
         return True

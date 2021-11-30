@@ -94,8 +94,8 @@ def measure(port, voltage, repeat):
     if voltage:
         print(f"V_out has been set to {voltage:.2f} V.")
 
-    voltage, current = DiodeExperiment(port).measure_led_current_and_voltage(voltage, repeat)
-    print(f"The current running through the LED is {current:.6f} A.")
+    _, (i, i_err) = DiodeExperiment(port).measure_led_current_and_voltage(voltage, repeat)
+    print(f"The current running through the LED is {i:.6f}+-{i_err:.6f} A.")
 
 
 @cmd_group.command()
@@ -136,20 +136,28 @@ def measure(port, voltage, repeat):
     required=False,
     default=None,
 )
-def scan(port, start, end, step, output):
+@click.option(
+    "-r",
+    "--repeat",
+    help="Amount of times to repeat the measurement",
+    type=click.INT,
+    required=False,
+    default=1,
+)
+def scan(port, start, end, step, output, repeat):
     port = port_for_search_query(port)
     if not port:
         return
 
     m = DiodeExperiment(port)
 
-    u_i_pairs = []
-    for (voltage, current) in m.scan_current_through_led(start, end, step):
-        u_i_pairs.append((voltage, current))
-        print(f"{voltage:.2f}\t{current:.6f}")
+    rows = []
+    for ((u, u_err), (i, i_err)) in m.scan_current_through_led(start, end, step, repeat):
+        rows.append((u, u_err, i, i_err))
+        print(f"{u:.3f}+-{u_err:.3f}\t{i:.6f}+-{i_err:.6f}")
 
     if output:
-        save_data_to_csv(output, ["voltage", "current"], u_i_pairs)
+        save_data_to_csv(output, ["U", "U_err", "I", "I_err"], rows)
 
 
 if __name__ == "__main__":
