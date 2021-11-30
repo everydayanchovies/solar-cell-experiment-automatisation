@@ -1,8 +1,6 @@
-import csv
 from typing import Union
 
 import click
-import numpy as np
 
 from pythondaq.models.diode_experiment import list_devices, device_info, DiodeExperiment, save_data_to_csv
 
@@ -80,7 +78,15 @@ def info(search, search_arg):
     type=click.STRING,
     required=True
 )
-def measure(port, voltage):
+@click.option(
+    "-r",
+    "--repeat",
+    help="Amount of times to repeat the measurement",
+    type=click.INT,
+    required=False,
+    default=1,
+)
+def measure(port, voltage, repeat):
     port = port_for_search_query(port)
     if not port:
         return
@@ -88,7 +94,7 @@ def measure(port, voltage):
     if voltage:
         print(f"V_out has been set to {voltage:.2f} V.")
 
-    current = DiodeExperiment(port).measure_current_through_led(voltage)
+    voltage, current = DiodeExperiment(port).measure_led_current_and_voltage(voltage, repeat)
     print(f"The current running through the LED is {current:.6f} A.")
 
 
