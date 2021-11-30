@@ -146,14 +146,12 @@ def measure(port, voltage, repeat):
     default=1,
 )
 @click.option(
-    "-v",
-    "--plot",
+    "-g",
+    "--graph",
     help="Plot the measurement",
-    type=click.BOOL,
-    required=False,
-    default=False,
+    is_flag=True,
 )
-def scan(port, start, end, step, output, repeat, plot):
+def scan(port, start, end, step, output, repeat, graph):
     port = port_for_search_query(port)
     if not port:
         return
@@ -163,12 +161,15 @@ def scan(port, start, end, step, output, repeat, plot):
     rows = []
     for ((u, u_err), (i, i_err)) in m.scan_current_through_led(start, end, step, repeat):
         rows.append((u, u_err, i, i_err))
-        print(f"{u:.3f}+-{u_err:.3f}\t{i:.6f}+-{i_err:.6f}")
+        if repeat > 1:
+            print(f"{u:.3f}+-{u_err:.3f} V\t{i:.6f}+-{i_err:.6f} A")
+        else:
+            print(f"{u:.3f} V\t{i:.6f} A")
 
     if output:
         save_data_to_csv(output, ["U", "U_err", "I", "I_err"], rows)
 
-    if plot:
+    if graph:
         u, u_err, i, i_err = zip(*rows)
         plot_current_against_voltage(u, u_err, i, i_err)
 
