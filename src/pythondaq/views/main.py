@@ -1,5 +1,6 @@
 from typing import Union
 from rich import print
+from rich.progress import Progress
 
 import click
 
@@ -7,7 +8,8 @@ from pythondaq.models.diode_experiment import list_devices, device_info, DiodeEx
     plot_current_against_voltage
 
 
-DUMMY_DEVICE = True
+# set to true to spoof an arduino device, use for testing
+DUMMY_DEVICE = False
 
 
 def port_for_search_query(search_q) -> Union[str, None]:
@@ -163,12 +165,17 @@ def scan(port, start, end, step, output, repeat, graph):
     m = DiodeExperiment(port, dummy=DUMMY_DEVICE)
 
     rows = []
-    for ((u, u_err), (i, i_err)) in m.scan_current_through_led(start, end, step, repeat):
-        rows.append((u, u_err, i, i_err))
-        if repeat > 1:
-            print(f"{u:.3f}+-{u_err:.3f} V\t{i:.6f}+-{i_err:.6f} A")
-        else:
-            print(f"{u:.3f} V\t{i:.6f} A")
+    with Progress() as progress:
+        task = progress.add_task("Gathering measurements...", total=(end - start))
+
+        for ((u, u_err), (i, i_err)) in m.scan_current_through_led(start, end, step, repeat):
+            rows.append((u, u_err, i, i_err))
+            if repeat > 1:
+                print(f"{u:.3f}+-{u_err:.3f} V\t{i:.6f}+-{i_err:.6f} A")
+            else:
+                print(f"{u:.3f} V\t{i:.6f} A")
+
+            progress.update(task, advance=step)
 
     if output:
         save_data_to_csv(output, ["U", "U_err", "I", "I_err"], rows)

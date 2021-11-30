@@ -15,6 +15,7 @@
     # turn the led off
     device.set_output_voltage(CH_LED, 0)
 """
+import time
 from typing import Union
 
 import numpy as np
@@ -76,6 +77,7 @@ class ArduinoVISADevice:
         :param value: The voltage to set the output channel to. For example: 2.2.
         """
         if self.dummy:
+            time.sleep(0.01)
             return
 
         self.device.query(f"OUT:CH{channel}:VOLT {value}")
@@ -89,6 +91,7 @@ class ArduinoVISADevice:
         :return: The output voltage of the specified channel.
         """
         if self.dummy:
+            time.sleep(0.01)
             return np.random.randint(33) / 10
 
         q = f"OUT:CH{channel}:VOLT?"
@@ -110,6 +113,7 @@ class ArduinoVISADevice:
         :return: The input voltage of the specified channel.
         """
         if self.dummy:
+            time.sleep(0.01)
             return np.random.randint(33) / 10
 
         q = f"MEAS:CH{channel}:VOLT?"
