@@ -1,8 +1,10 @@
+import csv
 from typing import Union
 
 import click
+import numpy as np
 
-from pythondaq.models.diode_experiment import list_devices, device_info, DiodeExperiment
+from pythondaq.models.diode_experiment import list_devices, device_info, DiodeExperiment, save_data_to_csv
 
 
 def port_for_search_query(search_q) -> Union[str, None]:
@@ -88,6 +90,60 @@ def measure(port, voltage):
 
     current = DiodeExperiment(port).measure_current_through_led(voltage)
     print(f"The current running through the LED is {current:.6f} A.")
+
+
+@cmd_group.command()
+@click.option(
+    "-p",
+    "--port",
+    help="The port of the Arduino device (can be a partial string)",
+    type=click.STRING,
+    required=True
+)
+@click.option(
+    "-a",
+    "--start",
+    help="Set the starting voltage of the measurement",
+    type=click.FloatRange(0, 3.3),
+    required=False,
+    default=0.0,
+)
+@click.option(
+    "-b",
+    "--end",
+    help="Set the ending voltage of the measurement",
+    type=click.FloatRange(0, 3.3),
+    required=False,
+    default=3.3,
+)
+@click.option(
+    "-s",
+    "--step",
+    help="Set the step size of the measurement",
+    type=click.FloatRange(0, 3.3),
+    required=True,
+)
+@click.option(
+    "-o",
+    "--output",
+    help="The file in which to save the measurement",
+    required=False,
+    default=None,
+)
+def scan(port, start, end, step, output):
+    port = port_for_search_query(port)
+    if not port:
+        return
+
+    m = DiodeExperiment(port)
+
+    u_i_pairs = []
+    for (voltage, current) in m.scan_current_through_led(start, end, step):
+        u_i_pairs.append((voltage, current))
+        print(f"{voltage:.2f}\t{current:.6f}")
+
+    if output:
+        save_data_to_csv(output, ["voltage", "current"], u_i_pairs)
 
 
 if __name__ == "__main__":
