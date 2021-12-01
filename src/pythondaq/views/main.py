@@ -95,10 +95,13 @@ def measure(port, voltage, repeat):
         return
 
     if voltage:
-        print(f"V_out has been set to {voltage:.2f} V.")
+        print(f"V_out has been set to {voltage} V.")
 
-    _, (i, i_err) = DiodeExperiment(port).measure_led_current_and_voltage(voltage, repeat)
-    print(f"The current running through the LED is {i:.6f}+-{i_err:.6f} A.")
+    _, (i, i_err) = DiodeExperiment(port).measure_led(voltage, repeat)
+    if repeat > 1:
+        print(f"The current running through the LED is {i:.6f}±{i_err:.6f} A.")
+    else:
+        print(f"The current running through the LED is {i:.6f} A.")
 
 
 @cmd_group.command()
@@ -164,10 +167,10 @@ def scan(port, start, end, step, output, repeat, graph):
     with Progress() as progress:
         task = progress.add_task("Gathering measurements...", total=(end - start))
 
-        for ((u, u_err), (i, i_err)) in m.scan_current_through_led(start, end, step, repeat):
+        for ((u, u_err), (i, i_err)) in m.scan_led(start, end, step, repeat):
             rows.append((u, u_err, i, i_err))
             if repeat > 1:
-                print(f"{u:.3f}+-{u_err:.3f} V\t{i:.6f}+-{i_err:.6f} A")
+                print(f"{u:.3f}±{u_err:.3f} V\t{i:.6f}±{i_err:.6f} A")
             else:
                 print(f"{u:.3f} V\t{i:.6f} A")
 

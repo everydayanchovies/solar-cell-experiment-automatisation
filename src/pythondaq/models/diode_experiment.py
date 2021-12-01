@@ -39,12 +39,12 @@ class DiodeExperiment:
     def __init__(self, port: str):
         self.visa = ArduinoVISADevice(port)
 
-    def measure_led_current_and_voltage(self, output_voltage: float, repeat: int = 1) \
+    def measure_led(self, output_voltage: float, repeat: int = 1) \
             -> ((float, float), (float, float)):
         if output_voltage > 0.0:
             self.visa.set_output_voltage(CH_VOUT, output_voltage)
 
-        u_i_pairs = [res for res in self.__recursive_led_measurement(repeat) if res]
+        u_i_pairs = [res for res in self.__recursive_led_measurement(repeat)]
 
         voltage = [u for (u, _) in u_i_pairs]
         current = [i for (_, i) in u_i_pairs]
@@ -59,16 +59,17 @@ class DiodeExperiment:
             return False
 
         voltage = self.visa.get_input_voltage(CH_U1) - self.visa.get_input_voltage(CH_U2)
-        yield voltage, self.visa.get_input_voltage(CH_U2) / R
+        current = self.visa.get_input_voltage(CH_U2) / R
 
+        yield voltage, current
         yield from self.__recursive_led_measurement(repeat - 1)
 
-    def scan_current_through_led(self, start_voltage: float, end_voltage: float, step_size: float, repeat: int = 1):
+    def scan_led(self, start_voltage: float, end_voltage: float, step_size: float, repeat: int = 1):
         if end_voltage < start_voltage:
             raise ValueError(f"The start voltage ({start_voltage:.2f}) cannot be larger than the end voltage "
                              f"({end_voltage:.2f}). Try swapping the start and end voltage.")
 
         for v in np.arange(start_voltage, end_voltage + step_size, step_size):
-            yield self.measure_led_current_and_voltage(v, repeat)
+            yield self.measure_led(v, repeat)
 
         return True
