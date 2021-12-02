@@ -25,7 +25,7 @@ def resource_manager():
     return pyvisa.ResourceManager("@py")
 
 
-def list_devices(filter_q: str) -> list[str]:
+def list_devices(filter_q: str = "") -> list[str]:
     return [d for d in resource_manager().list_resources()
             if not filter_q or filter_q.lower() in d.lower()]
 
@@ -55,6 +55,9 @@ class ArduinoVISADevice:
             read_termination="\r\n",
             write_termination="\n"
         )
+
+    def close_device(self):
+        self.device.close()
 
     def set_output_voltage(self, channel, value):
         """

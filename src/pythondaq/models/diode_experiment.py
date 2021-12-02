@@ -39,6 +39,12 @@ class DiodeExperiment:
     def __init__(self, port: str):
         self.visa = ArduinoVISADevice(port)
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.visa.close_device()
+
     def measure_led(self, output_voltage: float, repeat: int = 1) \
             -> ((float, float), (float, float)):
         if output_voltage > 0.0:

@@ -7,7 +7,7 @@ import pkg_resources
 from PyQt5.QtCore import QRegExp
 from PyQt5.QtGui import QRegExpValidator
 
-from pythondaq.models.diode_experiment import DiodeExperiment, save_data_to_csv
+from pythondaq.models.diode_experiment import DiodeExperiment, save_data_to_csv, list_devices
 
 
 class UserInterface(QtWidgets.QMainWindow):
@@ -22,6 +22,8 @@ class UserInterface(QtWidgets.QMainWindow):
         ui = pkg_resources.resource_stream("pythondaq.views.ui", "diode.ui")
         uic.loadUi(ui, self)
 
+        self.devices_cb.addItems(list_devices())
+
         float_only_regex = QRegExp("[+-]?([0-9]*[.])?[0-9]+")
         self.u_start_ib.setValidator(QRegExpValidator(float_only_regex))
         self.u_end_ib.setValidator(QRegExpValidator(float_only_regex))
@@ -34,8 +36,6 @@ class UserInterface(QtWidgets.QMainWindow):
         self.save_btn.clicked.connect(self.save)
 
     def perform_scan(self):
-        m = DiodeExperiment("ASRL::SIMLED::INSTR")
-
         start = float(self.u_start_ib.text() or 0.0)
         if not start:
             start = 0.0
@@ -58,11 +58,11 @@ class UserInterface(QtWidgets.QMainWindow):
             repeat = 2
             self.repeat_ib.setText(str(repeat))
 
-        print(start, end, step_size, repeat)
-
         rows = []
-        for ((u, u_err), (i, i_err)) in m.scan_led(start, end, step_size, repeat):
-            rows.append((u, u_err, i, i_err))
+        port = self.devices_cb.currentText()
+        with DiodeExperiment(port) as m:
+            for ((u, u_err), (i, i_err)) in m.scan_led(start, end, step_size, repeat):
+                rows.append((u, u_err, i, i_err))
         self.rows = rows
 
         self.plot_widget.clear()
