@@ -43,7 +43,7 @@
             <item>
              <widget class="QLineEdit" name="u_start_ib">
               <property name="text">
-               <string>0.0</string>
+               <string>0.1</string>
               </property>
               <property name="maxLength">
                <number>10</number>

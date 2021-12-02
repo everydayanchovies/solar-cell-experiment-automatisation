@@ -6,6 +6,8 @@ import pyqtgraph as pg
 import pkg_resources
 from PyQt5.QtCore import QRegExp
 from PyQt5.QtGui import QRegExpValidator
+from pyvisa import VisaIOError
+from serial import SerialException
 
 from pythondaq.models.diode_experiment import DiodeExperiment, save_data_to_csv, list_devices
 
@@ -38,7 +40,7 @@ class UserInterface(QtWidgets.QMainWindow):
     def perform_scan(self):
         start = float(self.u_start_ib.text() or 0.0)
         if not start:
-            start = 0.0
+            start = 0.1
             self.u_start_ib.setText(str(start))
 
         end = float(self.u_end_ib.text() or 0.0)
@@ -60,9 +62,20 @@ class UserInterface(QtWidgets.QMainWindow):
 
         rows = []
         port = self.devices_cb.currentText()
-        with DiodeExperiment(port) as m:
-            for ((u, u_err), (i, i_err)) in m.scan_led(start, end, step_size, repeat):
-                rows.append((u, u_err, i, i_err))
+        try:
+            with DiodeExperiment(port) as m:
+                for ((u, u_err), (i, i_err)) in m.scan_led(start, end, step_size, repeat):
+                    rows.append((u, u_err, i, i_err))
+        except (VisaIOError, SerialException) as e:
+            d = QtWidgets.QMessageBox()
+            d.setIcon(QtWidgets.QMessageBox.Warning)
+            d.setText("Error occurred while taking measurement")
+            d.setInformativeText("Try selecting another device.")
+            d.setDetailedText(str(e))
+            d.setStandardButtons(QtWidgets.QMessageBox.Ok)
+            d.exec_()
+            return
+
         self.rows = rows
 
         self.plot_widget.clear()
