@@ -1,7 +1,8 @@
 import sys
+import threading
 
 import numpy as np
-from PyQt5 import QtWidgets, uic
+from PyQt5 import QtWidgets, uic, QtCore
 import pyqtgraph as pg
 import pkg_resources
 from PyQt5.QtCore import QRegExp
@@ -15,8 +16,6 @@ from pythondaq.models.diode_experiment import DiodeExperiment, save_data_to_csv,
 class UserInterface(QtWidgets.QMainWindow):
     def __init__(self):
         super().__init__()
-
-        self.rows = []
 
         pg.setConfigOption("background", 'w')
         pg.setConfigOption("foreground", 'b')
@@ -53,34 +52,51 @@ class UserInterface(QtWidgets.QMainWindow):
             num_samples = 10
             self.num_samples_ib.setText(str(num_samples))
 
-        step_size = (end - start) / num_samples
-
         repeat = int(self.repeat_ib.text() or 0)
         if not repeat:
             repeat = 2
             self.repeat_ib.setText(str(repeat))
 
-        rows = []
         port = self.devices_cb.currentText()
-        try:
-            with DiodeExperiment(port) as m:
-                for ((u, u_err), (i, i_err)) in m.scan_led(start, end, step_size, repeat):
-                    rows.append((u, u_err, i, i_err))
-        except (VisaIOError, SerialException) as e:
-            d = QtWidgets.QMessageBox()
-            d.setIcon(QtWidgets.QMessageBox.Warning)
-            d.setText("Error occurred while taking measurement")
-            d.setInformativeText("Try selecting another device.")
-            d.setDetailedText(str(e))
-            d.setStandardButtons(QtWidgets.QMessageBox.Ok)
-            d.exec_()
-            return
+        exp = Experiment()
 
-        self.rows = rows
+        error = None
 
+        def on_error(e):
+            nonlocal error
+            error = e
+
+        self.scan_btn.setEnabled(False)
+
+        e_scanning = threading.Event()
+        exp.start_scan(port, start, end, num_samples, repeat, e_scanning, on_error)
+
+        plot_timer = QtCore.QTimer()
+
+        def update_plot():
+            nonlocal plot_timer, error
+            self.plot(exp.rows)
+            if not e_scanning.is_set():
+                plot_timer.stop()
+                self.scan_btn.setEnabled(True)
+            if error:
+                plot_timer.stop()
+                self.scan_btn.setEnabled(True)
+                d = QtWidgets.QMessageBox()
+                d.setIcon(QtWidgets.QMessageBox.Warning)
+                d.setText("Error occurred while taking measurement")
+                d.setInformativeText("Try selecting another device.")
+                d.setDetailedText(str(error))
+                d.setStandardButtons(QtWidgets.QMessageBox.Ok)
+                d.exec_()
+
+        plot_timer.timeout.connect(update_plot)
+        plot_timer.start(100)
+
+    def plot(self, rows: list[(float, float)]):
         self.plot_widget.clear()
         self.plot_widget.plot([u for (u, _, _, _) in rows], [i for (_, _, i, _) in rows],
-                              symbol=None, pen={"color": 'k', "width": 5})
+                              symbol='o', symbolSize=5, pen=None)
         self.plot_widget.setLabel("left", "I (A)")
         self.plot_widget.setLabel("bottom", "U (V)")
 
@@ -88,6 +104,37 @@ class UserInterface(QtWidgets.QMainWindow):
         filepath, _ = QtWidgets.QFileDialog.getSaveFileName(filter="CSV files (*.csv)")
 
         save_data_to_csv(filepath, ["U", "U_err", "I", "I_err"], self.rows)
+
+
+class Experiment:
+    def __init__(self):
+        self.rows = []
+        self._scan_thread = None
+
+    def scan(self, port: str, start: float, end: float, steps: int, repeat: int,
+             e_scanning: threading.Event = None, on_error=None):
+        e_scanning.set()
+
+        self.rows = []
+        try:
+            with DiodeExperiment(port) as m:
+                step_size = (end - start) / steps
+                for ((u, u_err), (i, i_err)) in m.scan_led(start, end, step_size, repeat):
+                    self.rows.append((u, u_err, i, i_err))
+        except (VisaIOError, SerialException) as e:
+            on_error(e)
+
+        e_scanning.clear()
+
+    def start_scan(self, port: str, start: float, end: float, steps: int, repeat: int,
+                   e_scanning: threading.Event = None, on_error=None):
+        self._scan_thread = threading.Thread(
+            target=self.scan, args=(port, start, end, steps, repeat, e_scanning, on_error)
+        )
+        self._scan_thread.start()
+
+    def join_scan_thread(self):
+        self._scan_thread.join()
 
 
 def main():
