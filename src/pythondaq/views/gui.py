@@ -7,12 +7,14 @@ import pkg_resources
 from PyQt5.QtCore import QRegExp
 from PyQt5.QtGui import QRegExpValidator
 
-from pythondaq.models.diode_experiment import DiodeExperiment
+from pythondaq.models.diode_experiment import DiodeExperiment, save_data_to_csv
 
 
 class UserInterface(QtWidgets.QMainWindow):
     def __init__(self):
         super().__init__()
+
+        self.rows = []
 
         pg.setConfigOption("background", 'w')
         pg.setConfigOption("foreground", 'b')
@@ -29,6 +31,7 @@ class UserInterface(QtWidgets.QMainWindow):
         self.repeat_ib.setValidator(QRegExpValidator(int_only_regex))
 
         self.scan_btn.clicked.connect(self.perform_scan)
+        self.save_btn.clicked.connect(self.save)
 
     def perform_scan(self):
         m = DiodeExperiment("ASRL::SIMLED::INSTR")
@@ -60,12 +63,18 @@ class UserInterface(QtWidgets.QMainWindow):
         rows = []
         for ((u, u_err), (i, i_err)) in m.scan_led(start, end, step_size, repeat):
             rows.append((u, u_err, i, i_err))
+        self.rows = rows
 
         self.plot_widget.clear()
         self.plot_widget.plot([u for (u, _, _, _) in rows], [i for (_, _, i, _) in rows],
                               symbol=None, pen={"color": 'k', "width": 5})
         self.plot_widget.setLabel("left", "I (A)")
         self.plot_widget.setLabel("bottom", "U (V)")
+
+    def save(self):
+        filepath, _ = QtWidgets.QFileDialog.getSaveFileName(filter="CSV files (*.csv)")
+
+        save_data_to_csv(filepath, ["U", "U_err", "I", "I_err"], self.rows)
 
 
 def main():
