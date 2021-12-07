@@ -22,19 +22,41 @@ except ModuleNotFoundError:
 
 
 def resource_manager():
+    """
+    Retrieves an instance of ResourceManager.
+    :return: an instance of ResourceManager
+    """
     return pyvisa.ResourceManager("@py")
 
 
 def list_devices(filter_q: str = "") -> list[str]:
+    """
+    Lists the connected devices.
+    :param filter_q: optional filter string
+    :return: the filtered list of connected devices
+    """
     return [d for d in resource_manager().list_resources()
             if not filter_q or filter_q.lower() in d.lower()]
 
 
-def device_info(resource_name):
+def device_info(resource_name: str):
+    """
+    Retrieves a device's info.
+    :param resource_name: the port of the device
+    :rtype: ResourceInfo
+    :return: the device's info
+    """
     return resource_manager().resource_info(resource_name)
 
 
 class ArduinoVISADevice:
+    """ArduinoVISADevice is responsible for providing an interface to communicate with a VISA device.
+
+    Attributes:
+        port: the exact port of the device to open
+        rm: the resource manager
+        device: the device
+        """
     def __init__(self, port: str):
         """
         Initializes a ArduinoVISADevice instance.
@@ -57,6 +79,9 @@ class ArduinoVISADevice:
         )
 
     def close_device(self):
+        """
+        Closes the arduino device.
+        """
         self.device.close()
 
     def set_output_voltage(self, channel, value):

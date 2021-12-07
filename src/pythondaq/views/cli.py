@@ -9,6 +9,11 @@ from pythondaq.models.diode_experiment import list_devices, device_info, DiodeEx
 
 
 def port_for_search_query(search_q) -> Union[str, None]:
+    """
+    Tries to retrieve a port for a given search query.
+    :param search_q: a string by which to filter the available ports
+    :return: either a single matching port or nothing
+    """
     matching_devices = list_devices(search_q)
 
     if not matching_devices:
@@ -38,6 +43,10 @@ def cmd_group():
     type=click.STRING
 )
 def ls(search):
+    """
+    Command with which to list the available devices.
+    :param search: filters the available devices by this string
+    """
     if not search:
         print("The following devices are connected to your computer:")
     else:
@@ -57,6 +66,11 @@ def ls(search):
     type=click.STRING
 )
 def info(search, search_arg):
+    """
+    Shows the info of a requested device.
+    :param search: filters the available devices by this string
+    :param search_arg: see search
+    """
     q = search if search else search_arg
     if not q:
         return print("Please specify which device to communicate with. For example: 'diode info arduino'")
@@ -90,6 +104,9 @@ def info(search, search_arg):
     default=1,
 )
 def measure(port, voltage, repeat):
+    """
+    Measures the current running through the LED and sets the output voltage prior to that.
+    """
     port = port_for_search_query(port)
     if not port:
         return
@@ -157,6 +174,9 @@ def measure(port, voltage, repeat):
     is_flag=True,
 )
 def scan(port, start, end, step, output, repeat, graph):
+    """
+    Takes a series of measurements while varying the output voltage.
+    """
     port = port_for_search_query(port)
     if not port:
         return

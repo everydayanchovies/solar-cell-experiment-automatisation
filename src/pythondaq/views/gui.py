@@ -14,34 +14,51 @@ from pythondaq.models.diode_experiment import DiodeExperiment, save_data_to_csv,
 
 
 class UserInterface(QtWidgets.QMainWindow):
+    """UserInterface is responsible for rendering the UI and handling input events.
+    """
+
     def __init__(self):
         super().__init__()
 
+        # set plot colours
         pg.setConfigOption("background", 'w')
         pg.setConfigOption("foreground", 'b')
 
+        # load UI from file
         ui = pkg_resources.resource_stream("pythondaq.views.ui", "diode.ui")
         uic.loadUi(ui, self)
 
+        # init the devices combo box
         self.devices_cb.addItems(list_devices())
         self.devices_cb.setCurrentIndex(3)
+
+        # init the start and end input boxes, limit input to floats
         float_only_regex = QRegExp("[+-]?([0-9]*[.])?[0-9]+")
         self.u_start_ib.setValidator(QRegExpValidator(float_only_regex))
         self.u_end_ib.setValidator(QRegExpValidator(float_only_regex))
 
+        # init the samples and repeat input boxes, limit to integers
         int_only_regex = QRegExp("\\d+")
         self.num_samples_ib.setValidator(QRegExpValidator(int_only_regex))
         self.repeat_ib.setValidator(QRegExpValidator(int_only_regex))
 
+        # couple the buttons to their functions
         self.scan_btn.clicked.connect(self.perform_scan)
         self.save_btn.clicked.connect(self.save)
 
+        # init a timer for reading the measurements
         self.plot_timer = QtCore.QTimer()
+        # define a variable to carry errors across threads
         self.plot_error = None
+        # define an event that triggers when the scan is finished
         self.e_scanning = threading.Event()
+        # init the experiment class to an object
         self.exp = Experiment()
 
     def perform_scan(self):
+        """
+        Takes a series of measurements of the current through and voltage across the LED.
+        """
         start = float(self.u_start_ib.text() or 0.0)
         if not start:
             start = 0.1
@@ -63,6 +80,10 @@ class UserInterface(QtWidgets.QMainWindow):
             self.repeat_ib.setText(str(repeat))
 
         def on_error(e):
+            """
+            Carries the error from the scan thread to the GUI thread.
+            :param e: the error
+            """
             self.plot_error = e
 
         self.scan_btn.setEnabled(False)
@@ -73,7 +94,11 @@ class UserInterface(QtWidgets.QMainWindow):
         self.plot_timer.timeout.connect(self.update_plot)
         self.plot_timer.start(10)
 
-    def plot(self, rows: list[(float, float)]):
+    def plot(self, rows: list[(float, float, float, float)]):
+        """
+        Plots a U,I-graph in the plot widget.
+        :param rows: a list of (u, u_err, i, i_err) tuples
+        """
         if not rows:
             return
 
@@ -89,6 +114,9 @@ class UserInterface(QtWidgets.QMainWindow):
         self.plot_widget.addItem(error_bars)
 
     def update_plot(self):
+        """
+        This function gets called once every tick of the timer that updates the plot periodically.
+        """
         if not self.e_scanning.is_set():
             self.scan_btn.setEnabled(True)
             self.plot_timer.stop()
@@ -108,18 +136,37 @@ class UserInterface(QtWidgets.QMainWindow):
         self.plot(self.exp.rows)
 
     def save(self):
+        """
+        Saves the recorded data to file.
+        """
         filepath, _ = QtWidgets.QFileDialog.getSaveFileName(filter="CSV files (*.csv)")
 
         save_data_to_csv(filepath, ["U", "U_err", "I", "I_err"], self.rows)
 
 
 class Experiment:
+    """Experiment is responsible for managing the thread that performs the measurements.
+
+    Attributes:
+        rows: a list containing the measurements
+        _scan_thread: the tread
+    """
     def __init__(self):
         self.rows = []
         self._scan_thread = None
 
     def scan(self, port: str, start: float, end: float, steps: int, repeat: int,
              e_scanning: threading.Event = None, on_error=None):
+        """
+        Performs the series of measurements.
+        :param port: a string specifying the exact device port
+        :param start: start voltage
+        :param end: end voltage
+        :param steps: voltage step size
+        :param repeat: number of times to repeat each measurement
+        :param e_scanning: event that gets set at the start and cleared at the end of the measurement series
+        :param on_error: callback that gets called when an error occurs, error gets passed as an argument
+        """
         e_scanning.set()
 
         self.rows = []
@@ -135,6 +182,16 @@ class Experiment:
 
     def start_scan(self, port: str, start: float, end: float, steps: int, repeat: int,
                    e_scanning: threading.Event = None, on_error=None):
+        """
+        Perform the series of measurements on a separate thread.
+        :param port: a string specifying the exact device port
+        :param start: start voltage
+        :param end: end voltage
+        :param steps: voltage step size
+        :param repeat: number of times to repeat each measurement
+        :param e_scanning: event that gets set at the start and cleared at the end of the measurement series
+        :param on_error: callback that gets called when an error occurs, error gets passed as an argument
+        """
         self._scan_thread = threading.Thread(
             target=self.scan, args=(port, start, end, steps, repeat, e_scanning, on_error)
         )
@@ -142,6 +199,9 @@ class Experiment:
 
 
 def main():
+    """
+    Initializes and shows the UI.
+    """
     app = QtWidgets.QApplication(sys.argv)
     ui = UserInterface()
     ui.show()
