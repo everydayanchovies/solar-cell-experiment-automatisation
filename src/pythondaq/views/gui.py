@@ -94,11 +94,16 @@ class UserInterface(QtWidgets.QMainWindow):
         plot_timer.start(100)
 
     def plot(self, rows: list[(float, float)]):
+        x, x_err, y, y_err = [np.array(u) for u in zip(*rows)]
+
         self.plot_widget.clear()
-        self.plot_widget.plot([u for (u, _, _, _) in rows], [i for (_, _, i, _) in rows],
-                              symbol='o', symbolSize=5, pen=None)
         self.plot_widget.setLabel("left", "I (A)")
         self.plot_widget.setLabel("bottom", "U (V)")
+
+        self.plot_widget.plot(x, y, symbol='o', symbolSize=5, pen=None)
+
+        error_bars = pg.ErrorBarItem(x=x, y=y, width=2 * np.array(x_err), height=2 * np.array(y_err))
+        self.plot_widget.addItem(error_bars)
 
     def save(self):
         filepath, _ = QtWidgets.QFileDialog.getSaveFileName(filter="CSV files (*.csv)")
@@ -132,9 +137,6 @@ class Experiment:
             target=self.scan, args=(port, start, end, steps, repeat, e_scanning, on_error)
         )
         self._scan_thread.start()
-
-    def join_scan_thread(self):
-        self._scan_thread.join()
 
 
 def main():
