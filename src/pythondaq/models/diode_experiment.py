@@ -81,4 +81,6 @@ class DiodeExperiment:
         for v in np.arange(start_voltage, end_voltage + step_size, step_size):
             yield self.measure_led(v, repeat)
 
+        self.visa.set_output_voltage(CH_VOUT, 0)
+
         return True
