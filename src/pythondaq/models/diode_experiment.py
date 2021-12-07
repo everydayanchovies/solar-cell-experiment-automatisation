@@ -43,7 +43,10 @@ class DiodeExperiment:
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        self.visa.close_device()
+        try:
+            self.visa.close_device()
+        except AttributeError:
+            pass
 
     def measure_led(self, output_voltage: float, repeat: int = 1) \
             -> ((float, float), (float, float)):

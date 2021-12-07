@@ -24,7 +24,7 @@ class UserInterface(QtWidgets.QMainWindow):
         uic.loadUi(ui, self)
 
         self.devices_cb.addItems(list_devices())
-
+        self.devices_cb.setCurrentIndex(3)
         float_only_regex = QRegExp("[+-]?([0-9]*[.])?[0-9]+")
         self.u_start_ib.setValidator(QRegExpValidator(float_only_regex))
         self.u_end_ib.setValidator(QRegExpValidator(float_only_regex))
@@ -35,6 +35,11 @@ class UserInterface(QtWidgets.QMainWindow):
 
         self.scan_btn.clicked.connect(self.perform_scan)
         self.save_btn.clicked.connect(self.save)
+
+        self.plot_timer = QtCore.QTimer()
+        self.plot_error = None
+        self.e_scanning = threading.Event()
+        self.exp = Experiment()
 
     def perform_scan(self):
         start = float(self.u_start_ib.text() or 0.0)
@@ -57,43 +62,21 @@ class UserInterface(QtWidgets.QMainWindow):
             repeat = 2
             self.repeat_ib.setText(str(repeat))
 
-        port = self.devices_cb.currentText()
-        exp = Experiment()
-
-        error = None
-
         def on_error(e):
-            nonlocal error
-            error = e
+            self.plot_error = e
 
         self.scan_btn.setEnabled(False)
 
-        e_scanning = threading.Event()
-        exp.start_scan(port, start, end, num_samples, repeat, e_scanning, on_error)
+        port = self.devices_cb.currentText()
+        self.exp.start_scan(port, start, end, num_samples, repeat, self.e_scanning, on_error)
 
-        plot_timer = QtCore.QTimer()
-
-        def update_plot():
-            nonlocal plot_timer, error
-            self.plot(exp.rows)
-            if not e_scanning.is_set():
-                plot_timer.stop()
-                self.scan_btn.setEnabled(True)
-            if error:
-                plot_timer.stop()
-                self.scan_btn.setEnabled(True)
-                d = QtWidgets.QMessageBox()
-                d.setIcon(QtWidgets.QMessageBox.Warning)
-                d.setText("Error occurred while taking measurement")
-                d.setInformativeText("Try selecting another device.")
-                d.setDetailedText(str(error))
-                d.setStandardButtons(QtWidgets.QMessageBox.Ok)
-                d.exec_()
-
-        plot_timer.timeout.connect(update_plot)
-        plot_timer.start(100)
+        self.plot_timer.timeout.connect(self.update_plot)
+        self.plot_timer.start(10)
 
     def plot(self, rows: list[(float, float)]):
+        if not rows:
+            return
+
         x, x_err, y, y_err = [np.array(u) for u in zip(*rows)]
 
         self.plot_widget.clear()
@@ -104,6 +87,25 @@ class UserInterface(QtWidgets.QMainWindow):
 
         error_bars = pg.ErrorBarItem(x=x, y=y, width=2 * np.array(x_err), height=2 * np.array(y_err))
         self.plot_widget.addItem(error_bars)
+
+    def update_plot(self):
+        if not self.e_scanning.is_set():
+            self.scan_btn.setEnabled(True)
+            self.plot_timer.stop()
+
+        if self.plot_error:
+            self.scan_btn.setEnabled(True)
+            self.plot_timer.stop()
+            d = QtWidgets.QMessageBox()
+            d.setIcon(QtWidgets.QMessageBox.Warning)
+            d.setText("Error occurred while taking measurement")
+            d.setInformativeText("Try selecting another device.")
+            d.setDetailedText(str(self.plot_error))
+            d.setStandardButtons(QtWidgets.QMessageBox.Ok)
+            d.exec_()
+            self.plot_error = None
+
+        self.plot(self.exp.rows)
 
     def save(self):
         filepath, _ = QtWidgets.QFileDialog.getSaveFileName(filter="CSV files (*.csv)")
@@ -121,13 +123,13 @@ class Experiment:
         e_scanning.set()
 
         self.rows = []
-        try:
-            with DiodeExperiment(port) as m:
+        with DiodeExperiment(port) as m:
+            try:
                 step_size = (end - start) / steps
                 for ((u, u_err), (i, i_err)) in m.scan_led(start, end, step_size, repeat):
                     self.rows.append((u, u_err, i, i_err))
-        except (VisaIOError, SerialException) as e:
-            on_error(e)
+            except (VisaIOError, SerialException) as e:
+                on_error(e)
 
         e_scanning.clear()
 
