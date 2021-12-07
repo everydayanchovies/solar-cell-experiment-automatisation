@@ -30,7 +30,6 @@ class UserInterface(QtWidgets.QMainWindow):
 
         # init the devices combo box
         self.devices_cb.addItems(list_devices())
-        self.devices_cb.setCurrentIndex(3)
 
         # init the start and end input boxes, limit input to floats
         float_only_regex = QRegExp("[+-]?([0-9]*[.])?[0-9]+")
@@ -141,7 +140,7 @@ class UserInterface(QtWidgets.QMainWindow):
         """
         filepath, _ = QtWidgets.QFileDialog.getSaveFileName(filter="CSV files (*.csv)")
 
-        save_data_to_csv(filepath, ["U", "U_err", "I", "I_err"], self.rows)
+        save_data_to_csv(filepath, ["U", "U_err", "I", "I_err"], self.exp.rows)
 
 
 class Experiment:
@@ -170,13 +169,18 @@ class Experiment:
         e_scanning.set()
 
         self.rows = []
-        with DiodeExperiment(port) as m:
-            try:
-                step_size = (end - start) / steps
-                for ((u, u_err), (i, i_err)) in m.scan_led(start, end, step_size, repeat):
-                    self.rows.append((u, u_err, i, i_err))
-            except (VisaIOError, SerialException) as e:
-                on_error(e)
+        try:
+            with DiodeExperiment(port) as m:
+                try:
+                    step_size = (end - start) / steps
+                    for ((u, u_err), (i, i_err)) in m.scan_led(start, end, step_size, repeat):
+                        self.rows.append((u, u_err, i, i_err))
+                # catch inner errors so that the device gets a chance to close on error
+                except (VisaIOError, SerialException) as e:
+                    on_error(e)
+        # catch errors while opening the device
+        except SerialException as e:
+            on_error(e)
 
         e_scanning.clear()
 

@@ -94,7 +94,7 @@ class DiodeExperiment:
         :param repeat: carry variable containing the number of times to still repeat the measurement
         :return: yields a single measurement (u, i) continuously
         """
-        if repeat == 0:
+        if repeat <= 0:
             return False
 
         voltage = self.visa.get_input_voltage(CH_U1) - self.visa.get_input_voltage(CH_U2)
