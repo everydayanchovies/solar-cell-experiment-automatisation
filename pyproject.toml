@@ -24,5 +24,6 @@ requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.scripts]
-diode = "pythondaq.views.cli:cmd_group"
-diodegui = "pythondaq.views.gui:main"
+diode = "pythondaq.views.diode_cli:cmd_group"
+diodegui = "pythondaq.views.diode_gui:main"
+solarcell = "pythondaq.views.solar_cell_cli:cmd_group"
