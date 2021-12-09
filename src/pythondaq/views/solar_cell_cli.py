@@ -4,7 +4,7 @@ from rich.progress import Progress
 
 import click
 
-from pythondaq.models.solar_cell_experiment import list_devices, device_info, SolarCellExperiment, u_p_for_u_i, \
+from pythondaq.models.solar_cell_experiment import list_devices, device_info, SolarCellExperiment, p_for_u_i, \
     plot_u_i, plot_p_r, save_data_to_csv, plot_u_r
 
 
@@ -114,8 +114,8 @@ def measure(port, voltage, repeat):
     if voltage:
         print(f"V_out has been set to {voltage} V.")
 
-    (u, u_err), (i, i_err) = SolarCellExperiment(port).measure_u_i(voltage, repeat)
-    _, _, p, p_err = u_p_for_u_i(u, u_err, i, i_err)
+    (u, u_err), (i, i_err) = SolarCellExperiment(port).measure_u_i_r(voltage, repeat)
+    p, p_err = p_for_u_i(u, u_err, i, i_err)
 
     if repeat > 1:
         print(f"The current running through the solar panel is {i:.6f}±{i_err:.6f} A.")
@@ -195,7 +195,7 @@ def scan(port, start, end, step, output, repeat, graph):
         task = progress.add_task("Gathering measurements...", total=(end - start))
 
         for ((u, u_err), (i, i_err), (r, r_err), v_out) in m.scan_u_i_r(start, end, step, repeat):
-            _, _, p, p_err = u_p_for_u_i(u, u_err, i, i_err)
+            p, p_err = p_for_u_i(u, u_err, i, i_err)
             rows.append((v_out, u, u_err, i, i_err, p, p_err, r, r_err))
             if repeat > 1:
                 print(f"{v_out}\t{u:.3f}±{u_err:.3f} V\t{i:.6f}±{i_err:.6f} A\t{p:.6f}±{p_err:.7f} W\t{r:.3f}±{r_err:.3f} Ohm")

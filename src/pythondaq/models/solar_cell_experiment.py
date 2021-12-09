@@ -10,8 +10,6 @@ CH_U1 = 1
 CH_U2 = 2
 
 
-def
-
 def save_data_to_csv(filepath: str, headers: list[str], data: list[tuple]):
     """
     Saves the provided data to a csv file on disk.
@@ -95,10 +93,10 @@ def plot_u_r(u, u_err, i, i_err):
     plt.show()
 
 
-def u_p_for_u_i(u, u_err, i, i_err):
+def p_for_u_i(u, u_err, i, i_err):
     p = u * i
     p_err = p * np.sqrt(u_err ** 2 + i_err ** 2)
-    return u, u_err, p, p_err
+    return p, p_err
 
 
 class SolarCellExperiment:
@@ -135,12 +133,12 @@ class SolarCellExperiment:
 
         u_i_r_pairs = [res for res in self.__recursive_u_i_r_measurement(repeat)]
 
-        voltage, current, resistance = list(zip(*u_i_r_pairs))
+        u, i, r = list(zip(*u_i_r_pairs))
 
         def value_with_uncertainty(values):
             return np.mean(values), np.std(values) / np.sqrt(len(values))
 
-        return value_with_uncertainty(voltage), value_with_uncertainty(current), value_with_uncertainty(resistance), output_voltage
+        return value_with_uncertainty(u), value_with_uncertainty(i), value_with_uncertainty(r), output_voltage
 
     def __recursive_u_i_r_measurement(self, repeat: int = 1):
         """
