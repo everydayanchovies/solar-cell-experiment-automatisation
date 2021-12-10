@@ -10,7 +10,8 @@ from PyQt5.QtGui import QRegExpValidator
 from pyvisa import VisaIOError
 from serial import SerialException
 
-from pythondaq.models.diode_experiment import DiodeExperiment, save_data_to_csv, list_devices
+from pythondaq.models.solar_cell_experiment import list_devices, device_info, SolarCellExperiment, p_for_u_i, \
+    plot_u_i, plot_p_r, save_data_to_csv, plot_u_r
 
 
 class UserInterface(QtWidgets.QMainWindow):
@@ -30,6 +31,7 @@ class UserInterface(QtWidgets.QMainWindow):
 
         # init the devices combo box
         self.devices_cb.addItems(list_devices())
+        self.devices_cb.setCurrentIndex(5)
 
         # init the start and end input boxes, limit input to floats
         float_only_regex = QRegExp("[+-]?([0-9]*[.])?[0-9]+")
@@ -101,16 +103,25 @@ class UserInterface(QtWidgets.QMainWindow):
         if not rows:
             return
 
-        x, x_err, y, y_err = [np.array(u) for u in zip(*rows)]
+        u, u_err, i, i_err, r, r_err, p, p_err = [np.array(u) for u in zip(*rows)]
 
-        self.plot_widget.clear()
-        self.plot_widget.setLabel("left", "I (A)")
-        self.plot_widget.setLabel("bottom", "U (V)")
+        self.u_i_pw.clear()
+        self.u_i_pw.setLabel("left", "I (A)")
+        self.u_i_pw.setLabel("bottom", "U (V)")
 
-        self.plot_widget.plot(x, y, symbol='o', symbolSize=5, pen=None)
+        self.u_i_pw.plot(u, i, symbol='o', symbolSize=5, pen=None)
 
-        error_bars = pg.ErrorBarItem(x=x, y=y, width=2 * np.array(x_err), height=2 * np.array(y_err))
-        self.plot_widget.addItem(error_bars)
+        error_bars = pg.ErrorBarItem(x=u, y=i, width=2 * np.array(u_err), height=2 * np.array(i_err))
+        self.u_i_pw.addItem(error_bars)
+
+        self.u_p_pw.clear()
+        self.u_p_pw.setLabel("left", "P (W)")
+        self.u_p_pw.setLabel("bottom", "U (V)")
+
+        self.u_p_pw.plot(u, p, symbol='o', symbolSize=5, pen=None)
+
+        error_bars = pg.ErrorBarItem(x=u, y=p, width=2 * np.array(u_err), height=2 * np.array(p_err))
+        self.u_p_pw.addItem(error_bars)
 
     def update_plot(self):
         """
@@ -170,11 +181,13 @@ class Experiment:
 
         self.rows = []
         try:
-            with DiodeExperiment(port) as m:
+            with SolarCellExperiment(port) as m:
                 try:
                     step_size = (end - start) / steps
-                    for ((u, u_err), (i, i_err)) in m.scan_led(start, end, step_size, repeat):
-                        self.rows.append((u, u_err, i, i_err))
+                    for ((u, u_err), (i, i_err), (r, r_err), v_out) in m.scan_u_i_r(start, end, step_size, repeat):
+                        p, p_err = p_for_u_i(u, u_err, i, i_err)
+                        if np.isreal(u) and np.isreal(i) and np.isreal(r) and np.isreal(p):
+                            self.rows.append((u, u_err, i, i_err, r, r_err, p, p_err))
                 # catch inner errors so that the device gets a chance to close on error
                 except (VisaIOError, SerialException) as e:
                     on_error(e)
