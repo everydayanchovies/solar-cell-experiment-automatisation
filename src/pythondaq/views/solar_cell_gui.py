@@ -11,7 +11,7 @@ from pyvisa import VisaIOError
 from serial import SerialException
 
 from pythondaq.models.solar_cell_experiment import list_devices, device_info, SolarCellExperiment, p_for_u_i, \
-    plot_u_i, plot_p_r, save_data_to_csv, plot_u_r
+    plot_u_i, plot_p_r, save_data_to_csv, plot_u_r, v_out_for_u
 
 
 class UserInterface(QtWidgets.QMainWindow):
@@ -103,7 +103,7 @@ class UserInterface(QtWidgets.QMainWindow):
         if not rows:
             return
 
-        u, u_err, i, i_err, r, r_err, p, p_err = [np.array(u) for u in zip(*rows)]
+        u, u_err, i, i_err, r, r_err, p, p_err, v_out = [np.array(u) for u in zip(*rows)]
 
         self.u_i_pw.clear()
         self.u_i_pw.setLabel("left", "I (A)")
@@ -118,10 +118,11 @@ class UserInterface(QtWidgets.QMainWindow):
         self.u_p_pw.setLabel("left", "P (W)")
         self.u_p_pw.setLabel("bottom", "U (V)")
 
-        self.u_p_pw.plot(u, p, symbol='o', symbolSize=5, pen=None)
+        self.u_p_pw.plot(u, v_out, symbol='o', symbolSize=5, pen=None)
+        # self.u_p_pw.plot(u, p, symbol='o', symbolSize=5, pen=None)
 
-        error_bars = pg.ErrorBarItem(x=u, y=p, width=2 * np.array(u_err), height=2 * np.array(p_err))
-        self.u_p_pw.addItem(error_bars)
+        # error_bars = pg.ErrorBarItem(x=u, y=p, width=2 * np.array(u_err), height=2 * np.array(p_err))
+        # self.u_p_pw.addItem(error_bars)
 
     def update_plot(self):
         """
@@ -161,6 +162,7 @@ class Experiment:
         rows: a list containing the measurements
         _scan_thread: the tread
     """
+
     def __init__(self):
         self.rows = []
         self._scan_thread = None
@@ -187,13 +189,16 @@ class Experiment:
                     for ((u, u_err), (i, i_err), (r, r_err), v_out) in m.scan_u_i_r(start, end, step_size, repeat):
                         p, p_err = p_for_u_i(u, u_err, i, i_err)
                         if np.isreal(u) and np.isreal(i) and np.isreal(r) and np.isreal(p):
-                            self.rows.append((u, u_err, i, i_err, r, r_err, p, p_err))
+                            self.rows.append((u, u_err, i, i_err, r, r_err, p, p_err, v_out))
                 # catch inner errors so that the device gets a chance to close on error
                 except (VisaIOError, SerialException) as e:
                     on_error(e)
         # catch errors while opening the device
         except SerialException as e:
             on_error(e)
+
+        v_out = v_out_for_u([u for u, _, _, _, _, _, _, _, _ in self.rows], [v_out for _, _, _, _, _, _, _, _, v_out in self.rows], 3)
+        print(v_out)
 
         e_scanning.clear()
 

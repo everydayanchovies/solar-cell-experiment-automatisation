@@ -1,6 +1,9 @@
 import csv
 
+import lmfit.lineshapes
 import numpy as np
+import scipy.interpolate
+from lmfit import models, Parameters
 from matplotlib import pyplot as plt
 
 from pythondaq.controllers.arduino_device import list_devices, device_info, ArduinoVISADevice
@@ -99,6 +102,10 @@ def p_for_u_i(u, u_err, i, i_err):
     return p, p_err
 
 
+def v_out_for_u(u_rows, v_out_rows, u):
+    return scipy.interpolate.interp1d(u_rows, v_out_rows)(u)
+
+
 class SolarCellExperiment:
     """SolarCellExperiment is a model representing an experiment with an LED and a resistor in series.
 
@@ -182,5 +189,3 @@ class SolarCellExperiment:
 
     def find_optimal_v_out(self):
         pass
-
-

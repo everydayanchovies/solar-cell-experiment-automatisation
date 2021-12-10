@@ -15,6 +15,7 @@ PyVISA = "^1.11.3"
 rich = "^10.15.1"
 PyQt5 = "^5.15.6"
 pyqtgraph = "^0.12.3"
+lmfit = "^1.0.3"
 
 [tool.poetry.dev-dependencies]
 nsp2visasim = "^1.1.0"
