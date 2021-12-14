@@ -115,7 +115,7 @@
           <item>
            <widget class="QLineEdit" name="repeat_ib">
             <property name="text">
-             <string>10</string>
+             <string>2</string>
             </property>
             <property name="maxLength">
              <number>10</number>

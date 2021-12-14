@@ -106,13 +106,17 @@ def v_out_for_u(u_rows, v_out_rows, u):
     return scipy.interpolate.interp1d(u_rows, v_out_rows)(u)
 
 
+def u_for_v_out(u_rows, v_out_rows, v_out):
+    return scipy.interpolate.interp1d(v_out_rows, u_rows)(v_out)
+
+
 def model_u_i_func(U, Il, I0, n, T):
     e = 1.602E-19
     k = 1.381E-23
     return Il - I0 * (np.exp((e * U) / (n * k * T)) - 1)
 
 
-def fit_params_for_u_i(u, u_err, i, i_err):
+def fit_params_for_u_i(u, i, i_err):
     m = lmfit.model.Model(model_u_i_func)
 
     params = Parameters()
@@ -121,10 +125,30 @@ def fit_params_for_u_i(u, u_err, i, i_err):
     params.add("n", value=7, min=5, max=20)
     params.add("T", value=270, min=250, max=400)
 
-    fit = m.fit(i, U=u, params=params, weights=1/i_err)
-    fit.plot()
-    plt.show()
+    _u = []
+    _i = []
+    _i_err = []
+    for j in range(len(u)):
+        if not np.isnan(i[j]) and not np.isinf(i[j])\
+                and not np.isnan(i_err[j]) and not np.isinf(i_err[j]):
+            _u.append(u[j])
+            _i.append(i[j])
+            _i_err.append(i_err[j])
+
+    fit = m.fit(_i, U=_u, params=params, weights=1/i_err)
     return fit.params["Il"].value, fit.params["I0"].value, fit.params["n"].value, fit.params["T"].value
+
+
+def find_mosfet_hotspot(v_out, u):
+    u_rms = np.sqrt(np.mean(u**2))
+
+    last_u = u[0]
+    window_len = 10
+    for i in range(window_len, len(v_out), window_len):
+        if np.abs(last_u - u[i]) > u_rms:
+            return v_out[i]
+
+    raise ValueError("No sweetspot found!")
 
 
 class SolarCellExperiment:

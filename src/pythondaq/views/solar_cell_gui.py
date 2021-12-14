@@ -13,6 +13,8 @@ from serial import SerialException
 from pythondaq.models.solar_cell_experiment import list_devices, device_info, SolarCellExperiment, p_for_u_i, \
     plot_u_i, plot_p_r, save_data_to_csv, plot_u_r, v_out_for_u, fit_params_for_u_i, model_u_i_func
 
+from src.pythondaq.models.solar_cell_experiment import find_mosfet_hotspot, u_for_v_out
+
 
 class UserInterface(QtWidgets.QMainWindow):
     """UserInterface is responsible for rendering the UI and handling input events.
@@ -112,8 +114,29 @@ class UserInterface(QtWidgets.QMainWindow):
         self.u_i_pw.plot(u, i, symbol='o', symbolSize=5, pen=None)
 
         if fit:
-            fit_params = fit_params_for_u_i(u, u_err, i, i_err)
-            x = np.array(range(0, int(np.max(u) * 100))) / 100
+            v_out_mosfet_hotspot = find_mosfet_hotspot(v_out, u)
+
+            u_hotspot_start = u_for_v_out(u, v_out, v_out_mosfet_hotspot - 0.5)
+            u_hotspot_end = u_for_v_out(u, v_out, v_out_mosfet_hotspot + 0.5)
+
+            _u, _i, _i_err = [], [], []
+            for j in range(len(u)):
+                if u_hotspot_start > u[j] > u_hotspot_end and i_err[j] != 0:
+                    _u.append(u[j])
+                    _i.append(i[j])
+                    _i_err.append(i_err[j])
+
+            _u = np.array(_u)
+            _i = np.array(_i)
+            _i_err = np.array(_i_err)
+
+            print(u_for_v_out(u, v_out, v_out_mosfet_hotspot - 0.5))
+            print(u_for_v_out(u, v_out, v_out_mosfet_hotspot + 0.5))
+            print(len(u))
+            print(len(_u))
+            print(v_out_mosfet_hotspot)
+            fit_params = fit_params_for_u_i(_u, _i, _i_err)
+            x = np.array(range(int(np.min(_u) * 1000), int(np.max(_u) * 1000))) / 1000
             y = np.array([model_u_i_func(s, *fit_params) for s in x])
 
             self.u_i_pw.plot(x, y, symbol=None, pen={"color": "k", "width": 5})
