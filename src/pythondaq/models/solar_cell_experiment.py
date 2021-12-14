@@ -164,6 +164,8 @@ class SolarCellExperiment:
         u, i, r = list(zip(*u_i_r_pairs))
 
         def value_with_uncertainty(values):
+            if np.isinf(values).any() or np.isnan(values).any():
+                return np.mean(values), np.inf
             return np.mean(values), np.std(values) / np.sqrt(len(values))
 
         return value_with_uncertainty(u), value_with_uncertainty(i), value_with_uncertainty(r), output_voltage

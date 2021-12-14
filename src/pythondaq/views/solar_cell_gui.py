@@ -198,10 +198,7 @@ class Experiment:
                     step_size = (end - start) / steps
                     for ((u, u_err), (i, i_err), (r, r_err), v_out) in m.scan_u_i_r(start, end, step_size, repeat):
                         p, p_err = p_for_u_i(u, u_err, i, i_err)
-                        if not np.isnan(u) and not np.isinf(u) and not np.isnan(i) and not np.isinf(i) \
-                                and not np.isnan(r) and not np.isinf(r) and not np.isnan(p) and not np.isinf(p)\
-                                and not np.isnan(i_err) and not np.isinf(i_err) and i != 0:
-                            self.rows.append((u, u_err, i, i_err, r, r_err, p, p_err, v_out))
+                        self.rows.append((u, u_err, i, i_err, r, r_err, p, p_err, v_out))
                 # catch inner errors so that the device gets a chance to close on error
                 except (VisaIOError, SerialException) as e:
                     on_error(e)
@@ -210,7 +207,6 @@ class Experiment:
             on_error(e)
 
         v_out = v_out_for_u([u for u, _, _, _, _, _, _, _, _ in self.rows], [v_out for _, _, _, _, _, _, _, _, v_out in self.rows], 3)
-        print(v_out)
 
         e_scanning.clear()
 
