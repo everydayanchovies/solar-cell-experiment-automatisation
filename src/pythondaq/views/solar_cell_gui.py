@@ -11,7 +11,7 @@ from pyvisa import VisaIOError
 from serial import SerialException
 
 from pythondaq.models.solar_cell_experiment import list_devices, device_info, SolarCellExperiment, p_for_u_i, \
-    plot_u_i, plot_p_r, save_data_to_csv, plot_u_r, v_out_for_u
+    plot_u_i, plot_p_r, save_data_to_csv, plot_u_r, v_out_for_u, fit_params_for_u_i, model_u_i_func
 
 
 class UserInterface(QtWidgets.QMainWindow):
@@ -31,7 +31,7 @@ class UserInterface(QtWidgets.QMainWindow):
 
         # init the devices combo box
         self.devices_cb.addItems(list_devices())
-        self.devices_cb.setCurrentIndex(5)
+        self.devices_cb.setCurrentIndex(4)
 
         # init the start and end input boxes, limit input to floats
         float_only_regex = QRegExp("[+-]?([0-9]*[.])?[0-9]+")
@@ -95,7 +95,7 @@ class UserInterface(QtWidgets.QMainWindow):
         self.plot_timer.timeout.connect(self.update_plot)
         self.plot_timer.start(10)
 
-    def plot(self, rows: list[(float, float, float, float)]):
+    def plot(self, rows: list[(float, float, float, float)], fit: bool = False):
         """
         Plots a U,I-graph in the plot widget.
         :param rows: a list of (u, u_err, i, i_err) tuples
@@ -111,6 +111,13 @@ class UserInterface(QtWidgets.QMainWindow):
 
         self.u_i_pw.plot(u, i, symbol='o', symbolSize=5, pen=None)
 
+        if fit:
+            fit_params = fit_params_for_u_i(u, u_err, i, i_err)
+            x = np.array(range(0, int(np.max(u) * 100))) / 100
+            y = np.array([model_u_i_func(s, *fit_params) for s in x])
+
+            self.u_i_pw.plot(x, y, symbol=None, pen={"color": "k", "width": 5})
+
         error_bars = pg.ErrorBarItem(x=u, y=i, width=2 * np.array(u_err), height=2 * np.array(i_err))
         self.u_i_pw.addItem(error_bars)
 
@@ -125,12 +132,16 @@ class UserInterface(QtWidgets.QMainWindow):
         # self.u_p_pw.addItem(error_bars)
 
     def update_plot(self):
+        self.plot(self.exp.rows)
+
         """
         This function gets called once every tick of the timer that updates the plot periodically.
         """
         if not self.e_scanning.is_set():
             self.scan_btn.setEnabled(True)
             self.plot_timer.stop()
+
+            self.plot(self.exp.rows, fit=True)
 
         if self.plot_error:
             self.scan_btn.setEnabled(True)
@@ -144,7 +155,6 @@ class UserInterface(QtWidgets.QMainWindow):
             d.exec_()
             self.plot_error = None
 
-        self.plot(self.exp.rows)
 
     def save(self):
         """
@@ -152,7 +162,7 @@ class UserInterface(QtWidgets.QMainWindow):
         """
         filepath, _ = QtWidgets.QFileDialog.getSaveFileName(filter="CSV files (*.csv)")
 
-        save_data_to_csv(filepath, ["U", "U_err", "I", "I_err"], self.exp.rows)
+        save_data_to_csv(filepath, ["U", "U_err", "I", "I_err", "R", "R_err", "P", "P_err", "V_out"], self.exp.rows)
 
 
 class Experiment:
@@ -188,7 +198,9 @@ class Experiment:
                     step_size = (end - start) / steps
                     for ((u, u_err), (i, i_err), (r, r_err), v_out) in m.scan_u_i_r(start, end, step_size, repeat):
                         p, p_err = p_for_u_i(u, u_err, i, i_err)
-                        if np.isreal(u) and np.isreal(i) and np.isreal(r) and np.isreal(p):
+                        if not np.isnan(u) and not np.isinf(u) and not np.isnan(i) and not np.isinf(i) \
+                                and not np.isnan(r) and not np.isinf(r) and not np.isnan(p) and not np.isinf(p)\
+                                and not np.isnan(i_err) and not np.isinf(i_err) and i != 0:
                             self.rows.append((u, u_err, i, i_err, r, r_err, p, p_err, v_out))
                 # catch inner errors so that the device gets a chance to close on error
                 except (VisaIOError, SerialException) as e:

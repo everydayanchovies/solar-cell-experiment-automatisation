@@ -47,7 +47,7 @@
             <item>
              <widget class="QLineEdit" name="u_start_ib">
               <property name="text">
-               <string>0.1</string>
+               <string>0</string>
               </property>
               <property name="maxLength">
                <number>10</number>
@@ -68,7 +68,7 @@
             <item>
              <widget class="QLineEdit" name="u_end_ib">
               <property name="text">
-               <string>3.2</string>
+               <string>3.3</string>
               </property>
               <property name="maxLength">
                <number>10</number>
@@ -115,7 +115,7 @@
           <item>
            <widget class="QLineEdit" name="repeat_ib">
             <property name="text">
-             <string>3</string>
+             <string>10</string>
             </property>
             <property name="maxLength">
              <number>10</number>
@@ -180,7 +180,7 @@
       <item>
        <widget class="QTabWidget" name="tabWidget">
         <property name="currentIndex">
-         <number>1</number>
+         <number>0</number>
         </property>
         <widget class="QWidget" name="u_i_tab">
          <attribute name="title">

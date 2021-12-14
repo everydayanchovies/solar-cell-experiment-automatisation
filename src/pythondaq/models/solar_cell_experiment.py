@@ -106,6 +106,27 @@ def v_out_for_u(u_rows, v_out_rows, u):
     return scipy.interpolate.interp1d(u_rows, v_out_rows)(u)
 
 
+def model_u_i_func(U, Il, I0, n, T):
+    e = 1.602E-19
+    k = 1.381E-23
+    return Il - I0 * (np.exp((e * U) / (n * k * T)) - 1)
+
+
+def fit_params_for_u_i(u, u_err, i, i_err):
+    m = lmfit.model.Model(model_u_i_func)
+
+    params = Parameters()
+    params.add("Il", value=1E-6, min=1E-20, max=1)
+    params.add("I0", value=1E-3, min=1E-20, max=1)
+    params.add("n", value=7, min=5, max=20)
+    params.add("T", value=270, min=250, max=400)
+
+    fit = m.fit(i, U=u, params=params, weights=1/i_err)
+    fit.plot()
+    plt.show()
+    return fit.params["Il"].value, fit.params["I0"].value, fit.params["n"].value, fit.params["T"].value
+
+
 class SolarCellExperiment:
     """SolarCellExperiment is a model representing an experiment with an LED and a resistor in series.
 
