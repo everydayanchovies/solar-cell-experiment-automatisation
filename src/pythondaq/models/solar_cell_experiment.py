@@ -122,7 +122,7 @@ def fit_params_for_u_i(u, i, i_err):
     params = Parameters()
     params.add("Il", value=1E-6, min=1E-20, max=1)
     params.add("I0", value=1E-3, min=1E-20, max=1)
-    params.add("n", value=7, min=5, max=20)
+    params.add("n", value=10, min=10, max=15)
     params.add("T", value=270, min=250, max=400)
 
     _u = []
