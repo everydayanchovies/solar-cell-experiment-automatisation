@@ -191,6 +191,9 @@ class UserInterface(QtWidgets.QMainWindow):
             max_r=self.exp.r_max
         ))
 
+        if not self.exp.p_r_t_rows:
+            return
+
         p, p_err, r, r_err, t = [np.array(a) for a in zip(*self.exp.p_r_t_rows)]
 
         self.max_pow_p_pw.clear()
@@ -419,8 +422,8 @@ class Experiment:
                 while not self._kill_max_pow_thread.is_set():
                     t = round(time() * 10) * 100
 
-                    # find max power point every second
-                    if t % 1000:
+                    # find max power point every 5 seconds
+                    if t % 5000:
                         try:
                             u_rows, v_out_rows = [], []
                             for (u, u_err), (i, i_err), (r, r_err), v_out in m.scan_u_i_r(
@@ -433,6 +436,8 @@ class Experiment:
                                 self.p_r_t_rows.append(
                                     (p, p_err, r, r_err, time())
                                 )
+                                self.pop_old_p_r_t_measurements()
+
                                 u_rows.append(u)
                                 v_out_rows.append(v_out)
 
@@ -449,6 +454,8 @@ class Experiment:
                                 self.p_r_t_rows.append(
                                     (p, p_err, r, r_err, time())
                                 )
+                                self.pop_old_p_r_t_measurements()
+
                                 u_rows.append(u)
                                 u_err_rows.append(u_err)
                                 i_rows.append(i)
@@ -468,12 +475,19 @@ class Experiment:
                             on_error(e)
 
                     # if t % 100:
+                    #     pop
         # catch errors while opening the device
         except SerialException as e:
             on_error(e)
 
-    def stop_tracking_max_power_point(self):
-        self._kill_max_pow_thread.set()
+    def pop_old_p_r_t_measurements(self):
+        if len(self.p_r_t_rows) <= 1:
+            return
+
+        t = time()
+        # remove last item while its age ([4]th element) is greater than 3 sec
+        while t - self.p_r_t_rows[0][4] > 3:
+            self.p_r_t_rows.pop(0)
 
     def start_scan(self, port: str, start: float, end: float, steps: int, repeat: int,
                    e_scanning: threading.Event = None, on_error=None):
@@ -498,6 +512,9 @@ class Experiment:
             target=self.track_max_power_point, args=(port, on_error)
         )
         self._max_pow_thread.start()
+
+    def stop_tracking_max_power_point(self):
+        self._kill_max_pow_thread.set()
 
 
 def main():
