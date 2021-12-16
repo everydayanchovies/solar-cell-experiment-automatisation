@@ -206,14 +206,17 @@ def maximum_for_p(p, arbt_arr):
     return p_max, y_max
 
 
-def make_measurement_information_text(max_p, max_r):
+def make_measurement_information_text(max_p, max_p_err, max_r, max_r_err):
     """
     Generates the measurement information text as seen in the GUI.
     :param max_p: maximum power
+    :param max_p_err: error on max power
     :param max_r: resistance at maximum power
-    :return:
+    :param max_r_err: error on max_r
+    :return: the info as a string
     """
-    return f"Maximum power is {max_p:.6f} W when the solar panel senses a resistance of {max_r:.2f} Ohm."
+    return f"Maximum power is {max_p:.6f}±{max_p_err:.6f} W when the solar panel senses a " \
+           f"resistance of {max_r:.2f}±{max_r_err:.2f} Ohm."
 
 
 class SolarCellExperiment:

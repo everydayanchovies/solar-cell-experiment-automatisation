@@ -112,12 +112,16 @@ class UserInterface(QtWidgets.QMainWindow):
 
             self.exp.stop_tracking_max_power_point()
 
+            self.max_pow_timer.stop()
+
     def periodic_tracking_toggled(self):
         """
         The toggled event listener for the periodic tracking checkbox.
         """
         if not (self.periodic_tracking_cb.isChecked() or self.active_tracking_cb.isChecked()):
             self.max_p_tracking_cb.setChecked(False)
+            self.exp.stop_tracking_max_power_point()
+            self.max_pow_timer.stop()
 
         self.exp.max_p_periodic_tracking = self.periodic_tracking_cb.isChecked()
 
@@ -127,6 +131,8 @@ class UserInterface(QtWidgets.QMainWindow):
         """
         if not (self.periodic_tracking_cb.isChecked() or self.active_tracking_cb.isChecked()):
             self.max_p_tracking_cb.setChecked(False)
+            self.exp.stop_tracking_max_power_point()
+            self.max_pow_timer.stop()
 
         self.exp.max_p_active_tracking = self.active_tracking_cb.isChecked()
 
@@ -242,9 +248,13 @@ class UserInterface(QtWidgets.QMainWindow):
 
             self.max_pow_error = None
 
+            self.max_pow_timer.stop()
+
         self.scan_info_tb.setPlainText(make_measurement_information_text(
             max_p=self.exp.p_max,
-            max_r=self.exp.r_max
+            max_p_err=self.exp.p_max_err,
+            max_r=self.exp.r_max,
+            max_r_err=self.exp.r_max_err
         ))
 
         if not self.exp.p_r_t_rows:
@@ -349,9 +359,13 @@ class UserInterface(QtWidgets.QMainWindow):
             self.u_i_pw.plot(_x, _y, symbol=None, pen={"color": "k", "width": 5})
 
             max_p, max_r = maximum_for_p(p, r)
+            _, max_p_err = maximum_for_p(p, p_err)
+            _, max_r_err = maximum_for_p(p, r_err)
             self.scan_info_tb.setPlainText(make_measurement_information_text(
                 max_p=max_p,
-                max_r=max_r
+                max_p_err=max_p_err,
+                max_r=max_r,
+                max_r_err=max_r_err
             ))
 
         error_bars = pg.ErrorBarItem(x=u, y=i, width=2 * np.array(u_err), height=2 * np.array(i_err))
@@ -456,7 +470,9 @@ class Experiment:
 
         self._max_p_v_out = 0.0
         self.p_max = 0.0
+        self.p_max_err = 0.0
         self.r_max = 0.0
+        self.r_max_err = 0.0
         self.p_r_t_rows = []
         self._max_pow_thread = None
         self._kill_max_pow_thread = threading.Event()
@@ -526,7 +542,8 @@ class Experiment:
 
                             v_out_start, v_out_end = v_out_of_mosfet_sweetspot(v_out_rows, u_rows)
 
-                            u_rows, u_err_rows, i_rows, i_err_rows, r_rows, v_out_rows = [], [], [], [], [], []
+                            u_rows, u_err_rows, i_rows, i_err_rows, r_rows, r_err_rows, v_out_rows = \
+                                [], [], [], [], [], [], []
                             for (u, u_err), (i, i_err), (r, r_err), v_out in m.scan_u_i_r(
                                     start_voltage=v_out_start,
                                     end_voltage=v_out_end,
@@ -544,16 +561,24 @@ class Experiment:
                                 i_rows.append(i)
                                 i_err_rows.append(i_err)
                                 r_rows.append(r)
+                                r_err_rows.append(r_err)
                                 v_out_rows.append(v_out)
 
-                            u_rows, u_err_rows, i_rows, i_err_rows, r_rows, v_out_rows = [np.array(a) for a in
-                                                                                          [u_rows, u_err_rows, i_rows,
-                                                                                           i_err_rows, r_rows,
-                                                                                           v_out_rows]
-                                                                                          ]
+                            u_rows, u_err_rows, i_rows, i_err_rows, r_rows, r_err_rows, v_out_rows = [np.array(a) for a
+                                                                                                      in
+                                                                                                      [u_rows,
+                                                                                                       u_err_rows,
+                                                                                                       i_rows,
+                                                                                                       i_err_rows,
+                                                                                                       r_rows,
+                                                                                                       r_err_rows,
+                                                                                                       v_out_rows]
+                                                                                                      ]
 
                             p_rows, p_err_rows = p_for_u_i(u_rows, u_err_rows, i_rows, i_err_rows)
                             self.p_max, self.r_max = maximum_for_p(p_rows, r_rows)
+                            _, self.p_max_err = maximum_for_p(p_rows, p_err_rows)
+                            _, self.r_max_err = maximum_for_p(p_rows, r_err_rows)
                             _, self._max_p_v_out = maximum_for_p(p_rows, v_out_rows)
                         # catch inner errors so that the device gets a chance to close on error
                         except (VisaIOError, SerialException) as e:
@@ -572,15 +597,17 @@ class Experiment:
                     if self.max_p_periodic_tracking and t % 7000 == 0:
                         scan_for_max_power()
 
+                    # find max power point actively
                     if self.max_p_active_tracking and t % 200 and (time() - self._time_of_last_power_scan) > 2:
                         current_p = self.mean_power_in_time_range(time() - 1, time())
                         recent_p = self.mean_power_in_time_range(time() - 2, time() - 1)
                         if np.abs(current_p - recent_p) > 0.1 * recent_p:
                             scan_for_max_power()
 
+                    # take passive measurements
                     try:
                         (u, u_err), (i, i_err), (r, r_err), _ = m.measure_u_i_r(output_voltage=self._max_p_v_out,
-                                                                                repeat=4)
+                                                                                repeat=6)
                         p, p_err = p_for_u_i(u, u_err, i, i_err)
                         self.p_r_t_rows.append(
                             (p, p_err, r, r_err, time())
@@ -594,7 +621,9 @@ class Experiment:
                         print(e)
                         pass
 
-                    sleep(0.03)
+                    # avoid spamming the output on high end hardware
+                    if self.p_r_t_rows and (time() - self.p_r_t_rows[len(self.p_r_t_rows) - 1][4]) < 0.01:
+                        sleep(0.03)
 
         # catch errors while opening the device
         except SerialException as e:
