@@ -125,9 +125,28 @@
          </widget>
         </item>
         <item>
+         <spacer name="verticalSpacer_2">
+          <property name="orientation">
+           <enum>Qt::Vertical</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>20</width>
+            <height>40</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+        <item>
          <layout class="QHBoxLayout" name="horizontalLayout_2" stretch="0,0,0,0">
           <item>
            <widget class="QPushButton" name="autorange_btn">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
             <property name="text">
              <string>Auto range</string>
             </property>
@@ -192,7 +211,7 @@
           <item>
            <widget class="QLineEdit" name="num_samples_ib">
             <property name="text">
-             <string>100</string>
+             <string>150</string>
             </property>
             <property name="maxLength">
              <number>10</number>
@@ -213,7 +232,7 @@
           <item>
            <widget class="QLineEdit" name="repeat_ib">
             <property name="text">
-             <string>2</string>
+             <string>10</string>
             </property>
             <property name="maxLength">
              <number>10</number>

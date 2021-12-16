@@ -79,8 +79,15 @@ class UserInterface(QtWidgets.QMainWindow):
             self.max_pow_p_pw.setVisible(True)
             self.max_pow_r_pw.setVisible(True)
 
+            def on_error(e):
+                """
+                Carries the error from the scan thread to the GUI thread.
+                :param e: the error
+                """
+                self.max_pow_error = e
+
             port = self.devices_cb.currentText()
-            self.exp.start_max_power_point_tracking(port)
+            self.exp.start_max_power_point_tracking(port, on_error=on_error)
 
             self.max_pow_timer.timeout.connect(self.max_pow_timer_tick)
             self.max_pow_timer.start(50)
@@ -187,7 +194,7 @@ class UserInterface(QtWidgets.QMainWindow):
         This function gets called once every tick of the maximum power point tracking timer.
         """
         if self.max_pow_error:
-            self.max_pow_error.stop()
+            self.exp.stop_tracking_max_power_point()
 
             d = QtWidgets.QMessageBox()
             d.setIcon(QtWidgets.QMessageBox.Warning)
@@ -233,7 +240,8 @@ class UserInterface(QtWidgets.QMainWindow):
 
         self.max_pow_r_pw.clear()
         self.max_pow_r_pw.setLabel("left", "R (Ohm)")
-        self.max_pow_r_pw.setLabel("bottom", "t (s)")
+        # hide this label on purpose, it is shown in the plot below
+        # self.max_pow_r_pw.setLabel("bottom", "t (s)")
 
         self.max_pow_r_pw.plot(_t, _r, symbol='o', symbolSize=3, pen=None)
 
@@ -517,17 +525,22 @@ class Experiment:
                             if on_error:
                                 on_error(e)
 
-                    (u, u_err), (i, i_err), (r, r_err), _ = m.measure_u_i_r(output_voltage=self._max_p_v_out,
-                                                                            repeat=10)
-                    p, p_err = p_for_u_i(u, u_err, i, i_err)
-                    self.p_r_t_rows.append(
-                        (p, p_err, r, r_err, time())
-                    )
-                    self.pop_old_p_r_t_measurements()
+                    try:
+                        (u, u_err), (i, i_err), (r, r_err), _ = m.measure_u_i_r(output_voltage=self._max_p_v_out,
+                                                                                repeat=10)
+                        p, p_err = p_for_u_i(u, u_err, i, i_err)
+                        self.p_r_t_rows.append(
+                            (p, p_err, r, r_err, time())
+                        )
+                        self.pop_old_p_r_t_measurements()
+                    except (VisaIOError, SerialException, ValueError) as e:
+                        if on_error:
+                            on_error(e)
 
         # catch errors while opening the device
         except SerialException as e:
-            on_error(e)
+            if on_error:
+                on_error(e)
 
     def pop_old_p_r_t_measurements(self):
         """
