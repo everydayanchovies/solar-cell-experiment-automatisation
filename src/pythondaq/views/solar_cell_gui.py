@@ -79,6 +79,9 @@ class UserInterface(QtWidgets.QMainWindow):
         self.plot_in_progress = False
 
     def max_pow_tracking_toggled(self):
+        """
+        The toggled event listener for the maximum power point tracking checkbox.
+        """
         if self.max_p_tracking_cb.isChecked():
 
             if not (self.periodic_tracking_cb.isChecked() or self.active_tracking_cb.isChecked()):
@@ -110,12 +113,18 @@ class UserInterface(QtWidgets.QMainWindow):
             self.exp.stop_tracking_max_power_point()
 
     def periodic_tracking_toggled(self):
+        """
+        The toggled event listener for the periodic tracking checkbox.
+        """
         if not (self.periodic_tracking_cb.isChecked() or self.active_tracking_cb.isChecked()):
             self.max_p_tracking_cb.setChecked(False)
 
         self.exp.max_p_periodic_tracking = self.periodic_tracking_cb.isChecked()
 
     def active_tracking_toggled(self):
+        """
+        The toggled event listener for the active tracking checkbox.
+        """
         if not (self.periodic_tracking_cb.isChecked() or self.active_tracking_cb.isChecked()):
             self.max_p_tracking_cb.setChecked(False)
 
@@ -605,6 +614,12 @@ class Experiment:
             self.p_r_t_rows.pop(0)
 
     def mean_power_in_time_range(self, t_start, t_end):
+        """
+        Calculates the mean power in a given timeframe.
+        :param t_start: start time
+        :param t_end: end time
+        :return: the mean power in the specified timeframe or 0.0 if not enough data
+        """
         if p_in_range := [p for (p, _, _, _, t) in self.p_r_t_rows if t_start < t < t_end]:
             return np.mean(p_in_range)
         return 0.0
