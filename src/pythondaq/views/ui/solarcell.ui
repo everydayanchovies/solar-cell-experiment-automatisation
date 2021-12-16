@@ -18,7 +18,7 @@
     <item row="0" column="0">
      <layout class="QHBoxLayout" name="horizontalLayout" stretch="4,1">
       <item>
-       <layout class="QVBoxLayout" name="verticalLayout_5" stretch="3,1">
+       <layout class="QVBoxLayout" name="verticalLayout_5" stretch="4,1,1">
         <item>
          <widget class="QTabWidget" name="tabWidget">
           <property name="currentIndex">
@@ -89,6 +89,9 @@
            </layout>
           </widget>
          </widget>
+        </item>
+        <item>
+         <widget class="PlotWidget" name="max_pow_r_pw"/>
         </item>
         <item>
          <widget class="PlotWidget" name="max_pow_p_pw"/>

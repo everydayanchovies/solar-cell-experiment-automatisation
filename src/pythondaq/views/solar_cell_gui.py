@@ -54,6 +54,7 @@ class UserInterface(QtWidgets.QMainWindow):
 
         # hide max power tracking graph
         self.max_pow_p_pw.setVisible(False)
+        self.max_pow_r_pw.setVisible(False)
 
         # couple the max power tracking toggle to its function
         self.max_p_tracking_cb.toggled.connect(self.max_pow_tracking_toggled)
@@ -78,6 +79,7 @@ class UserInterface(QtWidgets.QMainWindow):
     def max_pow_tracking_toggled(self):
         if self.max_p_tracking_cb.isChecked():
             self.max_pow_p_pw.setVisible(True)
+            self.max_pow_r_pw.setVisible(True)
 
             port = self.devices_cb.currentText()
             self.exp.start_max_power_point_tracking(port)
@@ -86,6 +88,7 @@ class UserInterface(QtWidgets.QMainWindow):
             self.max_pow_timer.start(50)
         else:
             self.max_pow_p_pw.setVisible(False)
+            self.max_pow_r_pw.setVisible(False)
             self.exp.stop_tracking_max_power_point()
 
     def scan(self):
@@ -217,6 +220,27 @@ class UserInterface(QtWidgets.QMainWindow):
 
         error_bars = pg.ErrorBarItem(x=t, y=p, height=2 * np.array(p_err))
         self.max_pow_p_pw.addItem(error_bars)
+
+        _t, _r, _r_err = [], [], []
+        for j in range(len(r)):
+            if np.isnan(r[j]) or np.isinf(r[j]) or np.isnan(r_err[j]) or np.isinf(r_err[j]):
+                continue
+            _t.append(t[j])
+            _r.append(r[j])
+            _r_err.append(r_err[j])
+
+        _t = np.array(_t)
+        _r = np.array(_r)
+        _r_err = np.array(_r_err)
+
+        self.max_pow_r_pw.clear()
+        self.max_pow_r_pw.setLabel("left", "R (Ohm)")
+        self.max_pow_r_pw.setLabel("bottom", "t (s)")
+
+        self.max_pow_r_pw.plot(_t, _r, symbol='o', symbolSize=3, pen=None)
+
+        error_bars = pg.ErrorBarItem(x=_t, y=_r, height=2 * np.array(_r_err))
+        self.max_pow_r_pw.addItem(error_bars)
 
     def plot(self, finished_taking_measurements: bool = False):
         """
@@ -439,8 +463,8 @@ class Experiment:
                 while not self._kill_max_pow_thread.is_set():
                     t = round(time() * 10) * 100
 
-                    # find max power point every 5 seconds
-                    if t % 6000 == 0:
+                    # find max power point every 7 seconds
+                    if t % 7000 == 0:
                         try:
                             u_rows, v_out_rows = [], []
                             for (u, u_err), (i, i_err), (r, r_err), v_out in m.scan_u_i_r(
