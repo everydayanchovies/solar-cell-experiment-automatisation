@@ -151,21 +151,28 @@ class UserInterface(QtWidgets.QMainWindow):
 
         if fit:
             u_sweetspot_start, u_sweetspot_end = None, None
-            if self.mosfet_trim_cb.isChecked():
-                u_sweetspot_start, u_sweetspot_end = u_of_mosfet_sweetspot(v_out, u)
+
+            try:
+                if self.mosfet_trim_cb.isChecked():
+                    u_sweetspot_start, u_sweetspot_end = u_of_mosfet_sweetspot(v_out, u)
+            except ValueError as e:
+                d = QtWidgets.QMessageBox()
+                d.setIcon(QtWidgets.QMessageBox.Warning)
+                d.setText("Error occurred while fitting")
+                d.setInformativeText("The dynamic range of the mosfet could not be determined.")
+                d.setDetailedText(str(e))
+                d.setStandardButtons(QtWidgets.QMessageBox.Ok)
+                d.exec_()
 
             _u, _i, _i_err = [], [], []
             for j in range(len(u)):
-                # TODO check i_err != 0??
-                if i_err[j] == 0:
-                    continue
                 if np.isnan(u[j]) or np.isnan(i[j]) or np.isnan(i_err[j]):
                     continue
-                if u_sweetspot_start and u_sweetspot_end and u_sweetspot_start < u[j] < u_sweetspot_end:
+                if u_sweetspot_start and u_sweetspot_end and not (u_sweetspot_start > u[j] > u_sweetspot_end):
                     continue
                 _u.append(u[j])
                 _i.append(i[j])
-                _i_err.append(i_err[j])
+                _i_err.append(max(i_err[j], 1E-12))
 
             _u = np.array(_u)
             _i = np.array(_i)

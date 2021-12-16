@@ -113,6 +113,7 @@ def mosfet_u_for_v_out(u_rows, v_out_rows, v_out):
 def model_u_i_func(U, Il, I0, n, T):
     e = 1.602E-19
     k = 1.381E-23
+    n = int(n)
     return Il - I0 * (np.exp((e * U) / (n * k * T)) - 1)
 
 
@@ -122,7 +123,7 @@ def fit_params_for_u_i(u, i, i_err):
     params = Parameters()
     params.add("Il", value=1E-6, min=1E-20, max=1)
     params.add("I0", value=1E-3, min=1E-20, max=1)
-    params.add("n", value=10, min=10, max=15)
+    params.add("n", value=11, min=10, max=15)
     params.add("T", value=270, min=250, max=400)
 
     _u = []
