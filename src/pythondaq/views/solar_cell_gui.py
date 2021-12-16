@@ -130,29 +130,46 @@ class UserInterface(QtWidgets.QMainWindow):
             _i = np.array(_i)
             _i_err = np.array(_i_err)
 
-            print(u_for_v_out(u, v_out, v_out_mosfet_hotspot - 0.5))
-            print(u_for_v_out(u, v_out, v_out_mosfet_hotspot + 0.5))
-            print(len(u))
-            print(len(_u))
-            print(v_out_mosfet_hotspot)
             fit_params = fit_params_for_u_i(_u, _i, _i_err)
-            x = np.array(range(int(np.min(_u) * 1000), int(np.max(_u) * 1000))) / 1000
+            x = np.array(range(int(np.min(u) * 1000), int(np.max(u) * 1000))) / 1000
             y = np.array([model_u_i_func(s, *fit_params) for s in x])
 
-            self.u_i_pw.plot(x, y, symbol=None, pen={"color": "k", "width": 5})
+            _x = []
+            _y = []
+            for j in range(len(x)):
+                if y[j] > 0:
+                    _x.append(x[j])
+                    _y.append(y[j])
+
+            self.u_i_pw.plot(_x, _y, symbol=None, pen={"color": "k", "width": 5})
 
         error_bars = pg.ErrorBarItem(x=u, y=i, width=2 * np.array(u_err), height=2 * np.array(i_err))
         self.u_i_pw.addItem(error_bars)
 
-        self.u_p_pw.clear()
-        self.u_p_pw.setLabel("left", "P (W)")
-        self.u_p_pw.setLabel("bottom", "U (V)")
+        self.p_r_pw.clear()
+        self.p_r_pw.setLabel("left", "P (W)")
+        self.p_r_pw.setLabel("bottom", "R (Ohm)")
 
-        self.u_p_pw.plot(u, v_out, symbol='o', symbolSize=5, pen=None)
-        # self.u_p_pw.plot(u, p, symbol='o', symbolSize=5, pen=None)
+        _p = []
+        _p_err = []
+        _r = []
+        _r_err = []
+        for j in range(len(p)):
+            if not np.isinf(r[j]) and not np.isnan(r[j]) and not np.isinf(r_err[j]) and not np.isnan(r_err[j]):
+                _p.append(p[j])
+                _p_err.append(p_err[j])
+                _r.append(r[j])
+                _r_err.append(r_err[j])
 
-        # error_bars = pg.ErrorBarItem(x=u, y=p, width=2 * np.array(u_err), height=2 * np.array(p_err))
-        # self.u_p_pw.addItem(error_bars)
+        _p = np.array(_p)
+        _p_err = np.array(_p_err)
+        _r = np.array(_r)
+        _r_err = np.array(_r_err)
+
+        self.p_r_pw.plot(_r, _p, symbol='o', symbolSize=5, pen=None)
+
+        error_bars = pg.ErrorBarItem(x=_r, y=_p, width=2 * np.array(_r_err), height=2 * np.array(_p_err))
+        self.p_r_pw.addItem(error_bars)
 
     def update_plot(self):
         self.plot(self.exp.rows)

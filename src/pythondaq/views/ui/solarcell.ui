@@ -180,11 +180,11 @@
       <item>
        <widget class="QTabWidget" name="tabWidget">
         <property name="currentIndex">
-         <number>0</number>
+         <number>1</number>
         </property>
         <widget class="QWidget" name="u_i_tab">
          <attribute name="title">
-          <string>U,I-curve</string>
+          <string>I,U-curve</string>
          </attribute>
          <layout class="QGridLayout" name="gridLayout_3">
           <item row="0" column="0">
@@ -198,7 +198,7 @@
          </attribute>
          <layout class="QGridLayout" name="gridLayout_4">
           <item row="0" column="0">
-           <widget class="PlotWidget" name="u_p_pw"/>
+           <widget class="PlotWidget" name="p_r_pw"/>
           </item>
          </layout>
         </widget>
