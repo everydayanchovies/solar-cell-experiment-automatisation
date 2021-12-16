@@ -11,8 +11,8 @@ from pyvisa import VisaIOError
 from serial import SerialException
 
 from pythondaq.models.solar_cell_experiment import list_devices, device_info, SolarCellExperiment, p_for_u_i, \
-    plot_u_i, plot_p_r, save_data_to_csv, plot_u_r, v_out_for_mosfet_u, fit_params_for_u_i, model_u_i_func, \
-    u_of_mosfet_sweetspot, v_out_of_mosfet_sweetspot
+    plot_u_i, plot_p_r, save_data_to_csv, plot_u_r, v_out_for_mosfet_u, model_u_i_func, \
+    u_of_mosfet_sweetspot, v_out_of_mosfet_sweetspot, fit_u_i, fit_params_for_u_i_fit, fit_stats_for_u_i_fit
 
 
 class UserInterface(QtWidgets.QMainWindow):
@@ -178,12 +178,17 @@ class UserInterface(QtWidgets.QMainWindow):
             _i = np.array(_i)
             _i_err = np.array(_i_err)
 
-            fit_params = fit_params_for_u_i(_u, _i, _i_err)
-            x = np.array(range(int(np.min(u) * 1000), int(np.max(u) * 1000))) / 1000
-            y = np.array([model_u_i_func(s, *fit_params) for s in x])
+            port = self.devices_cb.currentText()
+            _, (I_l_init, _), _, _ = SolarCellExperiment(port).measure_u_i_r(0, 20)
 
-            _x = []
-            _y = []
+            fit = fit_u_i(_u, _i, _i_err, I_l_init)
+
+            self.fit_stats_u_i_tb.setPlainText(fit_stats_for_u_i_fit(fit))
+
+            x = np.array(range(int(np.min(u) * 1000), int(np.max(u) * 1000))) / 1000
+            y = np.array([model_u_i_func(s, *fit_params_for_u_i_fit(fit)) for s in x])
+
+            _x, _y = [], []
             for j in range(len(x)):
                 if y[j] > 0:
                     _x.append(x[j])
@@ -254,8 +259,6 @@ class UserInterface(QtWidgets.QMainWindow):
 
         sweetspot_v_out_start, sweetspot_v_out_end = v_out_of_mosfet_sweetspot(v_out, u)
 
-        print(sweetspot_v_out_start, sweetspot_v_out_end)
-
         self.u_start_ib.setText(f"{sweetspot_v_out_start:.2f}")
         self.u_end_ib.setText(f"{sweetspot_v_out_end:.2f}")
 
@@ -300,8 +303,6 @@ class Experiment:
         # catch errors while opening the device
         except SerialException as e:
             on_error(e)
-
-        v_out = v_out_for_mosfet_u([u for u, _, _, _, _, _, _, _, _ in self.rows], [v_out for _, _, _, _, _, _, _, _, v_out in self.rows], 3)
 
         e_scanning.clear()
 

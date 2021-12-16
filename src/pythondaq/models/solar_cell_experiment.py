@@ -113,31 +113,35 @@ def mosfet_u_for_v_out(u_rows, v_out_rows, v_out):
 def model_u_i_func(U, Il, I0, n, T):
     e = 1.602E-19
     k = 1.381E-23
-    n = int(n)
     return Il - I0 * (np.exp((e * U) / (n * k * T)) - 1)
 
 
-def fit_params_for_u_i(u, i, i_err):
+def fit_u_i(u, i, i_err, I_l_init):
     m = lmfit.model.Model(model_u_i_func)
 
     params = Parameters()
-    params.add("Il", value=1E-6, min=1E-20, max=1)
-    params.add("I0", value=1E-3, min=1E-20, max=1)
-    params.add("n", value=11, min=10, max=15)
-    params.add("T", value=270, min=250, max=400)
+    params.add("Il", value=I_l_init, min=1E-20, max=10, vary=True)
+    params.add("I0", value=1E-6, min=1E-50, max=10)
+    params.add("n", value=11, min=5, max=20)
+    params.add("T", value=273, vary=False)
 
-    _u = []
-    _i = []
-    _i_err = []
+    _u, _i, _i_err = [], [], []
     for j in range(len(u)):
-        if not np.isnan(i[j]) and not np.isinf(i[j])\
+        if not np.isnan(i[j]) and not np.isinf(i[j]) \
                 and not np.isnan(i_err[j]) and not np.isinf(i_err[j]):
             _u.append(u[j])
             _i.append(i[j])
             _i_err.append(i_err[j])
 
-    fit = m.fit(_i, U=_u, params=params, weights=1/i_err)
+    return m.fit(_i, U=_u, params=params, weights=1 / i_err)
+
+
+def fit_params_for_u_i_fit(fit):
     return fit.params["Il"].value, fit.params["I0"].value, fit.params["n"].value, fit.params["T"].value
+
+
+def fit_stats_for_u_i_fit(fit):
+    return fit.fit_report()
 
 
 def v_out_of_mosfet_sweetspot(v_out, u):
