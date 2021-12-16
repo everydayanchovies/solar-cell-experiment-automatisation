@@ -477,7 +477,7 @@ class Experiment:
                             for (u, u_err), (i, i_err), (r, r_err), v_out in m.scan_u_i_r(
                                     start_voltage=0.0,
                                     end_voltage=3.2,
-                                    step_size=0.01,
+                                    step_size=0.015,
                                     repeat=1
                             ):
                                 p, p_err = p_for_u_i(u, u_err, i, i_err)
@@ -495,7 +495,7 @@ class Experiment:
                             for (u, u_err), (i, i_err), (r, r_err), v_out in m.scan_u_i_r(
                                     start_voltage=v_out_start,
                                     end_voltage=v_out_end,
-                                    step_size=0.005,
+                                    step_size=0.01,
                                     repeat=4
                             ):
                                 p, p_err = p_for_u_i(u, u_err, i, i_err)
