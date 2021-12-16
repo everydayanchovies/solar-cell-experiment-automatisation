@@ -559,8 +559,8 @@ class Experiment:
             return
 
         t = time()
-        # remove last item while its age ([4]th element) is greater than 3 sec
-        while t - self.p_r_t_rows[0][4] > 3:
+        # remove last item while its age ([4]th element) is greater than 8 sec
+        while t - self.p_r_t_rows[0][4] > 8:
             self.p_r_t_rows.pop(0)
 
     def start_scan(self, port: str, start: float, end: float, steps: int, repeat: int,
