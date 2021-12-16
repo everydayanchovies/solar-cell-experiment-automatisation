@@ -161,6 +161,9 @@ def v_out_of_mosfet_sweetspot(v_out, u):
     :param u: voltage across mosfet data (list like)
     :return: a range of voltages as a tuple (start, end)
     """
+    v_out = np.array(v_out)
+    u = np.array(u)
+
     u_rms = np.sqrt(np.mean(u ** 2))
 
     last_u = u[0]

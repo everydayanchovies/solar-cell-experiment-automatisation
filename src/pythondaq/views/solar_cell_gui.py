@@ -1,6 +1,6 @@
 import sys
 import threading
-from time import sleep
+from time import sleep, time
 
 import numpy as np
 from PyQt5 import QtWidgets, uic, QtCore, Qt
@@ -53,7 +53,7 @@ class UserInterface(QtWidgets.QMainWindow):
         self.autorange_btn.clicked.connect(self.autorange)
 
         # hide max power tracking graph
-        self.max_pow_pw.setVisible(False)
+        self.max_pow_p_pw.setVisible(False)
 
         # couple the max power tracking toggle to its function
         self.max_p_tracking_cb.toggled.connect(self.max_pow_tracking_toggled)
@@ -77,7 +77,7 @@ class UserInterface(QtWidgets.QMainWindow):
 
     def max_pow_tracking_toggled(self):
         if self.max_p_tracking_cb.isChecked():
-            self.max_pow_pw.setVisible(True)
+            self.max_pow_p_pw.setVisible(True)
 
             port = self.devices_cb.currentText()
             # TODO handle onerror
@@ -86,7 +86,7 @@ class UserInterface(QtWidgets.QMainWindow):
             self.max_pow_timer.timeout.connect(self.max_pow_timer_tick)
             self.max_pow_timer.start(20)
         else:
-            self.max_pow_pw.setVisible(False)
+            self.max_pow_p_pw.setVisible(False)
             self.exp.stop_tracking_max_power_point()
 
     def scan(self):
@@ -190,6 +190,17 @@ class UserInterface(QtWidgets.QMainWindow):
             max_p=self.exp.p_max,
             max_r=self.exp.r_max
         ))
+
+        p, p_err, r, r_err, t = [np.array(a) for a in zip(*self.exp.p_r_t_rows)]
+
+        self.max_pow_p_pw.clear()
+        self.max_pow_p_pw.setLabel("left", "P (W)")
+        self.max_pow_p_pw.setLabel("bottom", "t (s)")
+
+        self.max_pow_p_pw.plot(t, p, symbol='o', symbolSize=3, pen=None)
+
+        error_bars = pg.ErrorBarItem(x=t, y=p, height=2 * np.array(p_err))
+        self.max_pow_p_pw.addItem(error_bars)
 
     def plot(self, finished_taking_measurements: bool = False):
         """
@@ -356,6 +367,7 @@ class Experiment:
 
         self.p_max = 0
         self.r_max = 0
+        self.p_r_t_rows = []
         self._max_pow_thread = None
         self._kill_max_pow_thread = threading.Event()
 
@@ -397,50 +409,65 @@ class Experiment:
         :param on_error: callback that gets called when an error occurs, error gets passed as an argument
         """
 
-        try:
-            ports = [
+        ports = [
             "ASRL::SIMPV_BRIGHT::INSTR",
             "ASRL::SIMPV::INSTR"
-            ]
-            o = 0
-            while not self._kill_max_pow_thread.is_set():
-                port = ports[o]
-                if o == 0:
-                    o = 1
-                else:
-                    o = 0
-                sleep(1)
-                with SolarCellExperiment(port) as m:
-                    try:
-                        rows = [r for r in m.scan_u_i_r(
-                            start_voltage=0,
-                            end_voltage=3.1,
-                            step_size=0.05,
-                            repeat=1
-                        )]
-                        u_w_unc, _, _, v_out = list(zip(*rows))
-                        u, _ = [np.array(a) for a in zip(*u_w_unc)]
+        ]
 
-                        v_out_start, v_out_end = v_out_of_mosfet_sweetspot(v_out, u)
+        try:
+            with SolarCellExperiment(port) as m:
+                while not self._kill_max_pow_thread.is_set():
+                    t = round(time() * 10) * 100
 
-                        rows = [r for r in m.scan_u_i_r(
-                            start_voltage=v_out_start,
-                            end_voltage=v_out_end,
-                            step_size=0.01,
-                            repeat=3
-                        )]
-                        u_w_unc, i_w_unc, r_w_unc, _ = list(zip(*rows))
-                        u, u_err = [np.array(a) for a in zip(*u_w_unc)]
-                        i, i_err = [np.array(a) for a in zip(*i_w_unc)]
-                        r, _ = [np.array(a) for a in zip(*r_w_unc)]
+                    # find max power point every second
+                    if t % 1000:
+                        try:
+                            u_rows, v_out_rows = [], []
+                            for (u, u_err), (i, i_err), (r, r_err), v_out in m.scan_u_i_r(
+                                start_voltage=0,
+                                end_voltage=3.1,
+                                step_size=0.05,
+                                repeat=1
+                            ):
+                                p, p_err = p_for_u_i(u, u_err, i, i_err)
+                                self.p_r_t_rows.append(
+                                    (p, p_err, r, r_err, time())
+                                )
+                                u_rows.append(u)
+                                v_out_rows.append(v_out)
 
-                        p, _ = p_for_u_i(u, u_err, i, i_err)
+                            v_out_start, v_out_end = v_out_of_mosfet_sweetspot(v_out_rows, u_rows)
 
-                        self.p_max, self.r_max = maximum_for_p_r(p, r)
+                            u_rows, u_err_rows, i_rows, i_err_rows, r_rows = [], [], [], [], []
+                            for (u, u_err), (i, i_err), (r, r_err), v_out in m.scan_u_i_r(
+                                start_voltage=v_out_start,
+                                end_voltage=v_out_end,
+                                step_size=0.01,
+                                repeat=3
+                            ):
+                                p, p_err = p_for_u_i(u, u_err, i, i_err)
+                                self.p_r_t_rows.append(
+                                    (p, p_err, r, r_err, time())
+                                )
+                                u_rows.append(u)
+                                u_err_rows.append(u_err)
+                                i_rows.append(i)
+                                i_err_rows.append(i_err)
+                                r_rows.append(r)
 
-                    # catch inner errors so that the device gets a chance to close on error
-                    except (VisaIOError, SerialException) as e:
-                        on_error(e)
+                            u_rows, u_err_rows, i_rows, i_err_rows, r_rows = [np.array(a) for a in
+                                                                              [u_rows, u_err_rows, i_rows,
+                                                                               i_err_rows, r_rows]
+                                                                              ]
+
+                            p_rows, p_err_rows = p_for_u_i(u_rows, u_err_rows, i_rows, i_err_rows)
+                            self.p_max, self.r_max = maximum_for_p_r(p_rows, r_rows)
+
+                        # catch inner errors so that the device gets a chance to close on error
+                        except (VisaIOError, SerialException) as e:
+                            on_error(e)
+
+                    # if t % 100:
         # catch errors while opening the device
         except SerialException as e:
             on_error(e)
