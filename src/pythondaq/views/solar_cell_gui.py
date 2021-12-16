@@ -1,6 +1,6 @@
 import sys
 import threading
-from time import time
+from time import time, sleep
 
 import numpy as np
 from PyQt5 import QtWidgets, uic, QtCore
@@ -53,9 +53,13 @@ class UserInterface(QtWidgets.QMainWindow):
         # hide max power tracking graph
         self.max_pow_p_pw.setVisible(False)
         self.max_pow_r_pw.setVisible(False)
+        self.periodic_tracking_cb.setVisible(False)
+        self.active_tracking_cb.setVisible(False)
 
         # couple the max power tracking toggle to its function
         self.max_p_tracking_cb.toggled.connect(self.max_pow_tracking_toggled)
+        self.periodic_tracking_cb.toggled.connect(self.periodic_tracking_toggled)
+        self.active_tracking_cb.toggled.connect(self.active_tracking_toggled)
 
         # init a timer for reading the max power point
         self.max_pow_timer = QtCore.QTimer()
@@ -76,8 +80,14 @@ class UserInterface(QtWidgets.QMainWindow):
 
     def max_pow_tracking_toggled(self):
         if self.max_p_tracking_cb.isChecked():
+
+            if not (self.periodic_tracking_cb.isChecked() or self.active_tracking_cb.isChecked()):
+                self.active_tracking_cb.setChecked(True)
+
             self.max_pow_p_pw.setVisible(True)
             self.max_pow_r_pw.setVisible(True)
+            self.periodic_tracking_cb.setVisible(True)
+            self.active_tracking_cb.setVisible(True)
 
             def on_error(e):
                 """
@@ -94,7 +104,22 @@ class UserInterface(QtWidgets.QMainWindow):
         else:
             self.max_pow_p_pw.setVisible(False)
             self.max_pow_r_pw.setVisible(False)
+            self.periodic_tracking_cb.setVisible(False)
+            self.active_tracking_cb.setVisible(False)
+
             self.exp.stop_tracking_max_power_point()
+
+    def periodic_tracking_toggled(self):
+        if not (self.periodic_tracking_cb.isChecked() or self.active_tracking_cb.isChecked()):
+            self.max_p_tracking_cb.setChecked(False)
+
+        self.exp.max_p_periodic_tracking = self.periodic_tracking_cb.isChecked()
+
+    def active_tracking_toggled(self):
+        if not (self.periodic_tracking_cb.isChecked() or self.active_tracking_cb.isChecked()):
+            self.max_p_tracking_cb.setChecked(False)
+
+        self.exp.max_p_active_tracking = self.active_tracking_cb.isChecked()
 
     def scan(self):
         """
@@ -426,6 +451,9 @@ class Experiment:
         self.p_r_t_rows = []
         self._max_pow_thread = None
         self._kill_max_pow_thread = threading.Event()
+        self._time_of_last_power_scan = time()
+        self.max_p_active_tracking = True
+        self.max_p_periodic_tracking = False
 
     def scan(self, port: str, start: float, end: float, steps: int, repeat: int,
              e_scanning: threading.Event = None, on_error=None):
@@ -468,10 +496,8 @@ class Experiment:
         try:
             with SolarCellExperiment(port) as m:
                 while not self._kill_max_pow_thread.is_set():
-                    t = round(time() * 10) * 100
 
-                    # find max power point every 7 seconds
-                    if t % 7000 == 0:
+                    def scan_for_max_power():
                         try:
                             u_rows, v_out_rows = [], []
                             for (u, u_err), (i, i_err), (r, r_err), v_out in m.scan_u_i_r(
@@ -520,7 +546,6 @@ class Experiment:
                             p_rows, p_err_rows = p_for_u_i(u_rows, u_err_rows, i_rows, i_err_rows)
                             self.p_max, self.r_max = maximum_for_p(p_rows, r_rows)
                             _, self._max_p_v_out = maximum_for_p(p_rows, v_out_rows)
-
                         # catch inner errors so that the device gets a chance to close on error
                         except (VisaIOError, SerialException) as e:
                             if on_error:
@@ -530,9 +555,23 @@ class Experiment:
                             print(e)
                             pass
 
+                        self._time_of_last_power_scan = time()
+
+                    t = round(time() * 10) * 100
+
+                    # find max power point every 7 seconds
+                    if self.max_p_periodic_tracking and t % 7000 == 0:
+                        scan_for_max_power()
+
+                    if self.max_p_active_tracking and t % 200 and (time() - self._time_of_last_power_scan) > 2:
+                        current_p = self.mean_power_in_time_range(time() - 1, time())
+                        recent_p = self.mean_power_in_time_range(time() - 2, time() - 1)
+                        if np.abs(current_p - recent_p) > 0.1 * recent_p:
+                            scan_for_max_power()
+
                     try:
                         (u, u_err), (i, i_err), (r, r_err), _ = m.measure_u_i_r(output_voltage=self._max_p_v_out,
-                                                                                repeat=10)
+                                                                                repeat=4)
                         p, p_err = p_for_u_i(u, u_err, i, i_err)
                         self.p_r_t_rows.append(
                             (p, p_err, r, r_err, time())
@@ -545,6 +584,8 @@ class Experiment:
                     except ValueError as e:
                         print(e)
                         pass
+
+                    sleep(0.03)
 
         # catch errors while opening the device
         except SerialException as e:
@@ -562,6 +603,11 @@ class Experiment:
         # remove last item while its age ([4]th element) is greater than 8 sec
         while t - self.p_r_t_rows[0][4] > 8:
             self.p_r_t_rows.pop(0)
+
+    def mean_power_in_time_range(self, t_start, t_end):
+        if p_in_range := [p for (p, _, _, _, t) in self.p_r_t_rows if t_start < t < t_end]:
+            return np.mean(p_in_range)
+        return 0.0
 
     def start_scan(self, port: str, start: float, end: float, steps: int, repeat: int,
                    e_scanning: threading.Event = None, on_error=None):
