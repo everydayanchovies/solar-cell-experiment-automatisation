@@ -32,6 +32,7 @@ class UserInterface(QtWidgets.QMainWindow):
 
         # init the devices combo box
         self.devices_cb.addItems(list_devices())
+        # TODO remove this
         self.devices_cb.setCurrentIndex(5)
 
         # init the start and end input boxes, limit input to floats
@@ -95,6 +96,8 @@ class UserInterface(QtWidgets.QMainWindow):
         if end_override:
             end = end_override
 
+        # TODO either cap the max samples or remove this line
+        # max_num_samples = np.abs(end - start)
         num_samples = int(self.num_samples_ib.text() or 0)
         if not num_samples:
             num_samples = 100
@@ -104,7 +107,7 @@ class UserInterface(QtWidgets.QMainWindow):
 
         repeat = int(self.repeat_ib.text() or 0)
         if not repeat:
-            repeat = 3
+            repeat = 15
             self.repeat_ib.setText(str(repeat))
         if repeat_override:
             repeat = repeat_override
