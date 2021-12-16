@@ -522,7 +522,11 @@ class Experiment:
             with SolarCellExperiment(port) as m:
                 while not self._kill_max_pow_thread.is_set():
 
-                    def scan_for_max_power():
+                    def scan_for_max_power(retries=10):
+                        """
+                        Scans through the full output voltage range in search of the maximal power output.
+                        :param retries: number of times to retry in case of a soft error
+                        """
                         try:
                             u_rows, v_out_rows = [], []
                             for (u, u_err), (i, i_err), (r, r_err), v_out in m.scan_u_i_r(
@@ -587,7 +591,7 @@ class Experiment:
                         # ignore trivial errors as this is a continuous function
                         except ValueError as e:
                             print(e)
-                            pass
+                            scan_for_max_power(retries=retries - 1)
 
                         self._time_of_last_power_scan = time()
 
