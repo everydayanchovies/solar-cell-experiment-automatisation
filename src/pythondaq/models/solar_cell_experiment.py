@@ -190,14 +190,14 @@ def u_of_mosfet_sweetspot(v_out, u):
     return u_sweetspot_start, u_sweetspot_end
 
 
-def maximum_for_p_r(p, r):
-    p_max, r_max = 0, 0
+def maximum_for_p(p, arbt_arr):
+    p_max, y_max = 0, 0
     for i in range(len(p)):
         if p[i] > p_max:
             p_max = p[i]
-            r_max = r[i]
+            y_max = arbt_arr[i]
 
-    return p_max, r_max
+    return p_max, y_max
 
 
 def make_measurement_information_text(max_p, max_r):
