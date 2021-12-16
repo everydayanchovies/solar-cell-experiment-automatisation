@@ -699,6 +699,7 @@ def main():
     """
     app = QtWidgets.QApplication(sys.argv)
     ui = UserInterface()
+    ui.setWindowTitle("SOL - Max Marshall")
     ui.show()
     sys.exit(app.exec())
 
