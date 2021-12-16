@@ -74,24 +74,40 @@ class UserInterface(QtWidgets.QMainWindow):
         Takes a series of measurements of the current through and voltage across the solar panel.
         """
         start = float(self.u_start_ib.text() or 0.0)
-        if not start or start_override:
-            start = start_override or 0.1
-            self.u_start_ib.setText(str(start))
+        if not start:
+            start = 0.1
+        if start < 0:
+            start = 0
+        if start > 3.3:
+            start = 3.3
+        self.u_start_ib.setText(str(start))
+        if start_override:
+            start = start_override
 
         end = float(self.u_end_ib.text() or 0.0)
-        if not end or end_override:
-            end = end_override or 3.2
-            self.u_end_ib.setText(str(end))
+        if not end:
+            end = 3.3
+        if end < 0:
+            end = 0
+        if end > 3.3:
+            end = 3.3
+        self.u_end_ib.setText(str(end))
+        if end_override:
+            end = end_override
 
         num_samples = int(self.num_samples_ib.text() or 0)
-        if not num_samples or num_samples_override:
-            num_samples = num_samples_override or 100
+        if not num_samples:
+            num_samples = 100
             self.num_samples_ib.setText(str(num_samples))
+        if num_samples_override:
+            num_samples = num_samples_override
 
         repeat = int(self.repeat_ib.text() or 0)
-        if not repeat or repeat_override:
-            repeat = repeat_override or 3
+        if not repeat:
+            repeat = 3
             self.repeat_ib.setText(str(repeat))
+        if repeat_override:
+            repeat = repeat_override
 
         def on_error(e):
             """
