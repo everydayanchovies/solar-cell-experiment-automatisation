@@ -191,6 +191,12 @@ def u_of_mosfet_sweetspot(v_out, u):
 
 
 def maximum_for_p(p, arbt_arr):
+    """
+    Finds the maximum power and the corresponding value in the provided array.
+    :param p: power rows (list like)
+    :param arbt_arr: arbitrary data rows (list like, same size as p)
+    :return: a tuple of (p_max, y_max)
+    """
     p_max, y_max = 0, 0
     for i in range(len(p)):
         if p[i] > p_max:
@@ -201,6 +207,12 @@ def maximum_for_p(p, arbt_arr):
 
 
 def make_measurement_information_text(max_p, max_r):
+    """
+    Generates the measurement information text as seen in the GUI.
+    :param max_p: maximum power
+    :param max_r: resistance at maximum power
+    :return:
+    """
     return f"Maximum power is {max_p:.6f} W when the solar panel senses a resistance of {max_r:.2f} Ohm."
 
 

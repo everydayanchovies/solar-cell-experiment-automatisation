@@ -121,8 +121,6 @@ class UserInterface(QtWidgets.QMainWindow):
         if end_override:
             end = end_override
 
-        # TODO either cap the max samples or remove this line
-        # max_num_samples = np.abs(end - start)
         num_samples = int(self.num_samples_ib.text() or 0)
         if not num_samples:
             num_samples = 100
@@ -184,6 +182,9 @@ class UserInterface(QtWidgets.QMainWindow):
             self.update_autorange()
 
     def max_pow_timer_tick(self):
+        """
+        This function gets called once every tick of the maximum power point tracking timer.
+        """
         if self.max_pow_error:
             self.max_pow_error.stop()
 
@@ -234,8 +235,8 @@ class UserInterface(QtWidgets.QMainWindow):
         self.u_i_pw.plot(u, i, symbol='o', symbolSize=5, pen=None)
 
         if finished_taking_measurements:
+            # find mosfet sweet spot
             u_sweetspot_start, u_sweetspot_end = None, None
-
             try:
                 if self.mosfet_trim_cb.isChecked():
                     u_sweetspot_start, u_sweetspot_end = u_of_mosfet_sweetspot(v_out, u)
@@ -248,6 +249,7 @@ class UserInterface(QtWidgets.QMainWindow):
                 d.setStandardButtons(QtWidgets.QMessageBox.Ok)
                 d.exec_()
 
+            # create trimmed arrays according to the mosfet sweetspot and other checks
             _u, _i, _i_err = [], [], []
             for j in range(len(u)):
                 if np.isnan(u[j]) or np.isnan(i[j]) or np.isnan(i_err[j]):
@@ -262,13 +264,14 @@ class UserInterface(QtWidgets.QMainWindow):
             _i = np.array(_i)
             _i_err = np.array(_i_err)
 
+            # fit the data to the solar panel model
             port = self.devices_cb.currentText()
             _, (I_l_init, _), _, _ = SolarCellExperiment(port).measure_u_i_r(0, 20)
-
             fit = fit_u_i(_u, _i, _i_err, I_l_init)
 
             self.fit_stats_u_i_tb.setPlainText(fit.fit_report())
 
+            # create many datapoints according to the fit function
             x = np.array(range(int(np.min(u) * 1000), int(np.max(u) * 1000))) / 1000
             y = np.array([model_u_i_func(s, *fit_params_for_u_i_fit(fit)) for s in x])
 
@@ -373,7 +376,13 @@ class Experiment:
 
     Attributes:
         rows: a list containing the measurements
-        _scan_thread: the tread
+        _scan_thread: the scan tread
+        _max_p_v_out: the Vout corresponding to the maximum power
+        p_max: maximum power
+        r_max: resistance at maximum power
+        p_r_t_rows: power, resistance, time rows
+        _max_pow_thread: the maximum power point tracking thread
+        _kill_max_pow_thread: an event to signal the killing of _max_pow_thread
     """
 
     def __init__(self):
@@ -420,7 +429,7 @@ class Experiment:
 
     def track_max_power_point(self, port: str, on_error=None):
         """
-        Performs the series of measurements.
+        Continuously tracks the maximum power and from time to time tries to find a better maximum.
         :param port: a string specifying the exact device port
         :param on_error: callback that gets called when an error occurs, error gets passed as an argument
         """
@@ -498,6 +507,9 @@ class Experiment:
             on_error(e)
 
     def pop_old_p_r_t_measurements(self):
+        """
+        Removes old measurements from the p_r_t array.
+        """
         if len(self.p_r_t_rows) <= 1:
             return
 
@@ -524,6 +536,11 @@ class Experiment:
         self._scan_thread.start()
 
     def start_max_power_point_tracking(self, port: str, on_error=None):
+        """
+        Starts the maximum power point tracking thread.
+        :param port: a string specifying the exact device port
+        :param on_error: callback that gets called when an error occurs, error gets passed as an argument
+        """
         self._kill_max_pow_thread.clear()
         self._max_pow_thread = threading.Thread(
             target=self.track_max_power_point, args=(port, on_error)
@@ -531,6 +548,9 @@ class Experiment:
         self._max_pow_thread.start()
 
     def stop_tracking_max_power_point(self):
+        """
+        Stops the maximum power point tracking thread.
+        """
         self._kill_max_pow_thread.set()
 
 
