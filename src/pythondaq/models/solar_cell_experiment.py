@@ -34,10 +34,6 @@ def save_data_to_csv(filepath: str, headers: list[str], data: list[tuple]):
         [writer.writerow(make_row(data_row)) for data_row in data]
 
 
-def clean_float_arr(a):
-    return np.array([s if isinstance(s, (int, float)) else 0 for s in a])
-
-
 def plot_u_i(u, u_err, i, i_err):
     """
     Shows a matplotlib plot of the provided U, I data.
@@ -56,7 +52,7 @@ def plot_u_i(u, u_err, i, i_err):
 
 def plot_p_r(p, p_err, r, r_err):
     """
-    Shows a matplotlib plot of the provided U, I data.
+    Shows a matplotlib plot of the provided P, R data.
     :param p: power (array like)
     :param p_err: error on power (array like)
     :param r: resistance (array like)
@@ -70,53 +66,66 @@ def plot_p_r(p, p_err, r, r_err):
     plt.show()
 
 
-def plot_u_r(u, u_err, i, i_err):
-    _u = u
-    _u_err = u_err
-    _r = np.array(_u) / np.array(i)
-    _r_err = np.array(_u_err) / np.array(i_err)
-
-    u = []
-    u_err = []
-    r = []
-    r_err = []
-    for i in range(len(_u)):
-        if np.isnan(_r[i]) or np.isinf(_r[i]):
-            continue
-        r.append(_r[i])
-        r_err.append(_r_err[i])
-        u.append(_u[i])
-        u_err.append(_u_err[i])
-
-    plt.scatter(u, r)
-    plt.errorbar(u, r, xerr=u_err, yerr=r_err, linestyle='')
-    plt.xlabel(r"$U_{solarcell}$ [V]")
-    plt.ylabel(r"$R_{solarcell}$ [$\Omega$]")
-
-    plt.show()
-
-
 def p_for_u_i(u, u_err, i, i_err):
+    """
+    Calculate power P given voltage U and current I (lists, or single values).
+    :param u: voltage
+    :param u_err: voltage uncertainty
+    :param i: current
+    :param i_err: current uncertainty
+    :return: power with uncertainty (p, p_err)
+    """
     p = u * i
     p_err = p * np.sqrt(u_err ** 2 + i_err ** 2)
     return p, p_err
 
 
 def v_out_for_mosfet_u(u_rows, v_out_rows, u):
+    """
+    Calculates the output voltage corresponding to the given voltage across the mosfet.
+    :param u_rows: voltage across mosfet (list like)
+    :param v_out_rows: output voltage (list like)
+    :param u: query voltage across mosfet
+    :return: corresponding output voltage
+    """
     return scipy.interpolate.interp1d(u_rows, v_out_rows)(u)
 
 
 def mosfet_u_for_v_out(u_rows, v_out_rows, v_out):
+    """
+    Calculates the voltage across the mosfet corresponding to the given output voltage.
+    :param u_rows: voltage across mosfet (list like)
+    :param v_out_rows: output voltage (list like)
+    :param v_out: query output voltage
+    :return: corresponding voltage across the mosfet
+    """
     return scipy.interpolate.interp1d(v_out_rows, u_rows)(v_out)
 
 
 def model_u_i_func(U, Il, I0, n, T):
+    """
+    The function relating the current flow through the solar panel to the voltage across it.
+    :param U: voltage across solar panel
+    :param Il: current running through solar panel when the voltage across the solar panel is 0V
+    :param I0: the leak current of the diode virtual element of the solar panel
+    :param n: efficiency factor
+    :param T: temperature
+    :return: current running through the solar panel
+    """
     e = 1.602E-19
     k = 1.381E-23
     return Il - I0 * (np.exp((e * U) / (n * k * T)) - 1)
 
 
 def fit_u_i(u, i, i_err, I_l_init):
+    """
+    Performs a fit on the given voltage and current data.
+    :param u: voltage data
+    :param i: current data
+    :param i_err: uncertainty on current data
+    :param I_l_init: current running through solar panel when voltage across it is 0V
+    :return: a fit
+    """
     m = lmfit.model.Model(model_u_i_func)
 
     params = Parameters()
@@ -137,14 +146,21 @@ def fit_u_i(u, i, i_err, I_l_init):
 
 
 def fit_params_for_u_i_fit(fit):
+    """
+    Returns the fit parameter values for a given U,I-fit as a tuple.
+    :param fit: the fit object
+    :return: a tuple of (Il, I0, n, T)
+    """
     return fit.params["Il"].value, fit.params["I0"].value, fit.params["n"].value, fit.params["T"].value
 
 
-def fit_stats_for_u_i_fit(fit):
-    return fit.fit_report()
-
-
 def v_out_of_mosfet_sweetspot(v_out, u):
+    """
+    Finds the output voltages between which the resistance of the mosfet changes significantly.
+    :param v_out: output voltage data (list like)
+    :param u: voltage across mosfet data (list like)
+    :return: a range of voltages as a tuple (start, end)
+    """
     u_rms = np.sqrt(np.mean(u ** 2))
 
     last_u = u[0]
@@ -157,6 +173,12 @@ def v_out_of_mosfet_sweetspot(v_out, u):
 
 
 def u_of_mosfet_sweetspot(v_out, u):
+    """
+    Finds the voltages across the mosfet between which the resistance of the mosfet changes significantly.
+    :param v_out: output voltage data (list like)
+    :param u: voltage across mosfet data (list like)
+    :return: a range of voltages as a tuple (start, end)
+    """
     sweetspot_v_out_start, sweetspot_v_out_end = v_out_of_mosfet_sweetspot(v_out, u)
 
     u_sweetspot_start = mosfet_u_for_v_out(u, v_out, sweetspot_v_out_start)
@@ -188,11 +210,11 @@ class SolarCellExperiment:
     def measure_u_i_r(self, output_voltage: float, repeat: int = 1) -> \
             ((float, float), (float, float), (float, float), float):
         """
-        Takes a (repeated) measurement of the voltage and current (with uncertainty) across and through the LED.
-        Also sets the output voltage of the LED prior to taking the measurement.
-        :param output_voltage: sets this voltage as the LED voltage prior to measurement
+        Takes a (repeated) measurement of the voltage, current and resistance (with uncertainty) of the solar panel.
+        Also sets the output voltage of the circuit prior to taking the measurement.
+        :param output_voltage: sets this voltage as the circuit output voltage prior to measurement
         :param repeat: number of times to repeat the measurement (for calculating uncertainty)
-        :return: a tuple of tuples ((u, u_err), (i, i_err), (r, r_err)
+        :return: a tuple of tuples and v_out ((u, u_err), (i, i_err), (r, r_err), v_out)
         """
         if output_voltage > 0.0:
             self.visa.set_output_voltage(CH_VOUT, output_voltage)
@@ -210,7 +232,7 @@ class SolarCellExperiment:
 
     def __recursive_u_i_r_measurement(self, repeat: int = 1):
         """
-        Private function which recursively measures the current and voltage through and over the LED.
+        Private function which recursively takes measurements of the solar panel.
         I implemented the logic like this (instead of a for loop) to challenge myself.
         :param repeat: carry variable containing the number of times to still repeat the measurement
         :return: yields a single measurement (u, i) continuously
@@ -230,12 +252,13 @@ class SolarCellExperiment:
 
     def scan_u_i_r(self, start_voltage: float, end_voltage: float, step_size: float, repeat: int = 1):
         """
-        Take a series of voltage and current measurements of the LED while varying the output voltage.
+        Take a series of voltage, current and resistance measurements of the solar panel while varying the
+        output voltage.
         :param start_voltage: beginning output voltage
         :param end_voltage: final output voltage
         :param step_size: step size of the varying voltage
         :param repeat: number of times to repeat each single measurement
-        :return: yields a single measurement ((u, u_err), (i, i_err), (r, r_err)) continuously
+        :return: yields a single measurement ((u, u_err), (i, i_err), (r, r_err), v_out) continuously
         """
         if end_voltage < start_voltage:
             raise ValueError(f"The start voltage ({start_voltage:.2f}) cannot be larger than the end voltage "
@@ -247,6 +270,3 @@ class SolarCellExperiment:
         self.visa.set_output_voltage(CH_VOUT, 0)
 
         return True
-
-    def find_optimal_v_out(self):
-        pass

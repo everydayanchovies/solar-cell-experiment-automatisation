@@ -5,7 +5,7 @@ from rich.progress import Progress
 import click
 
 from pythondaq.models.solar_cell_experiment import list_devices, device_info, SolarCellExperiment, p_for_u_i, \
-    plot_u_i, plot_p_r, save_data_to_csv, plot_u_r
+    plot_u_i, plot_p_r, save_data_to_csv
 
 
 def port_for_search_query(search_q) -> Union[str, None]:
@@ -105,7 +105,7 @@ def info(search, search_arg):
 )
 def measure(port, voltage, repeat):
     """
-    Measures the current running through the LED and sets the output voltage prior to that.
+    Measures the current running through the solar panel and sets the output voltage prior to that.
     """
     port = port_for_search_query(port)
     if not port:
@@ -211,7 +211,6 @@ def scan(port, start, end, step, output, repeat, graph):
         v_out, u, u_err, i, i_err, p, p_err, r, r_err = zip(*rows)
         plot_u_i(u, u_err, i, i_err)
         plot_p_r(p, p_err, r, r_err)
-        plot_u_r(u, u_err, i, i_err)
 
 
 @cmd_group.command()
@@ -226,7 +225,6 @@ def find_optimal_resistance(port):
     port = port_for_search_query(port)
     if not port:
         return
-
 
 
 if __name__ == "__main__":

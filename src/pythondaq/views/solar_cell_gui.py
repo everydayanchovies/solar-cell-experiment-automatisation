@@ -11,8 +11,8 @@ from pyvisa import VisaIOError
 from serial import SerialException
 
 from pythondaq.models.solar_cell_experiment import list_devices, device_info, SolarCellExperiment, p_for_u_i, \
-    plot_u_i, plot_p_r, save_data_to_csv, plot_u_r, v_out_for_mosfet_u, model_u_i_func, \
-    u_of_mosfet_sweetspot, v_out_of_mosfet_sweetspot, fit_u_i, fit_params_for_u_i_fit, fit_stats_for_u_i_fit
+    plot_u_i, plot_p_r, save_data_to_csv, v_out_for_mosfet_u, model_u_i_func, \
+    u_of_mosfet_sweetspot, v_out_of_mosfet_sweetspot, fit_u_i, fit_params_for_u_i_fit
 
 
 class UserInterface(QtWidgets.QMainWindow):
@@ -58,16 +58,20 @@ class UserInterface(QtWidgets.QMainWindow):
         # init the experiment class to an object
         self.exp = Experiment()
 
+        # flags for handling autorange and plot logic
         self.autorange_in_progress = False
         self.plot_in_progress = False
 
     def scan(self):
+        """
+        The click handler of the Scan button.
+        """
         self.plot_in_progress = True
         self.perform_scan()
 
     def perform_scan(self, start_override=None, end_override=None, num_samples_override=None, repeat_override=None):
         """
-        Takes a series of measurements of the current through and voltage across the LED.
+        Takes a series of measurements of the current through and voltage across the solar panel.
         """
         start = float(self.u_start_ib.text() or 0.0)
         if not start or start_override:
@@ -107,7 +111,7 @@ class UserInterface(QtWidgets.QMainWindow):
 
     def scan_timer_tick(self):
         """
-        This function gets called once every tick of the timer that updates the plot periodically.
+        This function gets called once every tick of the scan timer; updates the relevant listeners periodically.
         """
 
         if self.scan_error or not self.e_scanning.is_set():
@@ -135,8 +139,8 @@ class UserInterface(QtWidgets.QMainWindow):
 
     def plot(self, fit: bool = False):
         """
-        Plots a U,I-graph in the plot widget.
-        :param rows: a list of (u, u_err, i, i_err) tuples
+        Plots a U,I-graph and the P,R-graphs in the plot widgets.
+        :param fit: whether to perform a fit on the data or not
         """
         if not self.exp.rows or (not self.plot_in_progress and not fit):
             return
@@ -183,7 +187,7 @@ class UserInterface(QtWidgets.QMainWindow):
 
             fit = fit_u_i(_u, _i, _i_err, I_l_init)
 
-            self.fit_stats_u_i_tb.setPlainText(fit_stats_for_u_i_fit(fit))
+            self.fit_stats_u_i_tb.setPlainText(fit.fit_report())
 
             x = np.array(range(int(np.min(u) * 1000), int(np.max(u) * 1000))) / 1000
             y = np.array([model_u_i_func(s, *fit_params_for_u_i_fit(fit)) for s in x])
@@ -203,10 +207,7 @@ class UserInterface(QtWidgets.QMainWindow):
         self.p_r_pw.setLabel("left", "P (W)")
         self.p_r_pw.setLabel("bottom", "R (Ohm)")
 
-        _p = []
-        _p_err = []
-        _r = []
-        _r_err = []
+        _p, _p_err, _r, _r_err = [], [], [], []
         for j in range(len(p)):
             if not np.isinf(r[j]) and not np.isnan(r[j]) and not np.isinf(r_err[j]) and not np.isnan(r_err[j]):
                 _p.append(p[j])
@@ -225,6 +226,9 @@ class UserInterface(QtWidgets.QMainWindow):
         self.p_r_pw.addItem(error_bars)
 
     def update_plot(self):
+        """
+        Listener for the scan timer, responsible for updating the plot.
+        """
         if self.scan_error or not self.e_scanning.is_set():
             self.plot_in_progress = False
 
@@ -239,6 +243,9 @@ class UserInterface(QtWidgets.QMainWindow):
         save_data_to_csv(filepath, ["U", "U_err", "I", "I_err", "R", "R_err", "P", "P_err", "V_out"], self.exp.rows)
 
     def autorange(self):
+        """
+        The click handler of the Autorange button.
+        """
         self.mosfet_trim_cb.setChecked(False)
 
         self.autorange_in_progress = True
@@ -249,6 +256,9 @@ class UserInterface(QtWidgets.QMainWindow):
                           repeat_override=3)
 
     def update_autorange(self):
+        """
+        Listener for the scan timer, responsible for eventually calculating the autorange.
+        """
         if self.scan_error or not self.e_scanning.is_set():
             self.autorange_in_progress = False
 
