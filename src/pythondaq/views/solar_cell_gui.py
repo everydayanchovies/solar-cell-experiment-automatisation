@@ -522,9 +522,13 @@ class Experiment:
                             _, self._max_p_v_out = maximum_for_p(p_rows, v_out_rows)
 
                         # catch inner errors so that the device gets a chance to close on error
-                        except (VisaIOError, SerialException, ValueError) as e:
+                        except (VisaIOError, SerialException) as e:
                             if on_error:
                                 on_error(e)
+                        # ignore trivial errors as this is a continuous function
+                        except ValueError as e:
+                            print(e)
+                            pass
 
                     try:
                         (u, u_err), (i, i_err), (r, r_err), _ = m.measure_u_i_r(output_voltage=self._max_p_v_out,
@@ -534,9 +538,13 @@ class Experiment:
                             (p, p_err, r, r_err, time())
                         )
                         self.pop_old_p_r_t_measurements()
-                    except (VisaIOError, SerialException, ValueError) as e:
+                    except (VisaIOError, SerialException) as e:
                         if on_error:
                             on_error(e)
+                    # ignore trivial errors as this is a continuous function
+                    except ValueError as e:
+                        print(e)
+                        pass
 
         # catch errors while opening the device
         except SerialException as e:
