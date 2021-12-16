@@ -444,9 +444,9 @@ class Experiment:
                         try:
                             u_rows, v_out_rows = [], []
                             for (u, u_err), (i, i_err), (r, r_err), v_out in m.scan_u_i_r(
-                                start_voltage=0,
-                                end_voltage=3.1,
-                                step_size=0.05,
+                                start_voltage=0.0,
+                                end_voltage=3.2,
+                                step_size=0.01,
                                 repeat=1
                             ):
                                 p, p_err = p_for_u_i(u, u_err, i, i_err)
@@ -464,8 +464,8 @@ class Experiment:
                             for (u, u_err), (i, i_err), (r, r_err), v_out in m.scan_u_i_r(
                                 start_voltage=v_out_start,
                                 end_voltage=v_out_end,
-                                step_size=0.01,
-                                repeat=3
+                                step_size=0.005,
+                                repeat=4
                             ):
                                 p, p_err = p_for_u_i(u, u_err, i, i_err)
                                 self.p_r_t_rows.append(
