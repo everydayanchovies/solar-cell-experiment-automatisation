@@ -1,5 +1,6 @@
 import sys
 import threading
+from time import sleep
 
 import numpy as np
 from PyQt5 import QtWidgets, uic, QtCore, Qt
@@ -12,7 +13,8 @@ from serial import SerialException
 
 from pythondaq.models.solar_cell_experiment import list_devices, device_info, SolarCellExperiment, p_for_u_i, \
     plot_u_i, plot_p_r, save_data_to_csv, v_out_for_mosfet_u, model_u_i_func, \
-    u_of_mosfet_sweetspot, v_out_of_mosfet_sweetspot, fit_u_i, fit_params_for_u_i_fit, make_measurement_information_text
+    u_of_mosfet_sweetspot, v_out_of_mosfet_sweetspot, fit_u_i, fit_params_for_u_i_fit, \
+    make_measurement_information_text, maximum_for_p_r
 
 
 class UserInterface(QtWidgets.QMainWindow):
@@ -50,6 +52,16 @@ class UserInterface(QtWidgets.QMainWindow):
         self.save_btn.clicked.connect(self.save)
         self.autorange_btn.clicked.connect(self.autorange)
 
+        # hide max power tracking graph
+        self.max_pow_pw.setVisible(False)
+
+        # couple the max power tracking toggle to its function
+        self.max_p_tracking_cb.toggled.connect(self.max_pow_tracking_toggled)
+
+        # init a timer for reading the max power point
+        self.max_pow_timer = QtCore.QTimer()
+        # define a variable to carry errors across threads
+        self.max_pow_error = None
         # init a timer for reading the measurements
         self.scan_timer = QtCore.QTimer()
         # define a variable to carry errors across threads
@@ -62,6 +74,20 @@ class UserInterface(QtWidgets.QMainWindow):
         # flags for handling autorange and plot logic
         self.autorange_in_progress = False
         self.plot_in_progress = False
+
+    def max_pow_tracking_toggled(self):
+        if self.max_p_tracking_cb.isChecked():
+            self.max_pow_pw.setVisible(True)
+
+            port = self.devices_cb.currentText()
+            # TODO handle onerror
+            self.exp.start_max_power_point_tracking(port)
+
+            self.max_pow_timer.timeout.connect(self.max_pow_timer_tick)
+            self.max_pow_timer.start(20)
+        else:
+            self.max_pow_pw.setVisible(False)
+            self.exp.stop_tracking_max_power_point()
 
     def scan(self):
         """
@@ -156,6 +182,15 @@ class UserInterface(QtWidgets.QMainWindow):
         if self.autorange_in_progress:
             self.update_autorange()
 
+    def max_pow_timer_tick(self):
+        if self.max_pow_error:
+            self.max_pow_error.stop()
+
+        self.scan_info_tb.setPlainText(make_measurement_information_text(
+            max_p=self.exp.p_max,
+            max_r=self.exp.r_max
+        ))
+
     def plot(self, finished_taking_measurements: bool = False):
         """
         Plots a U,I-graph and the P,R-graphs in the plot widgets.
@@ -219,7 +254,11 @@ class UserInterface(QtWidgets.QMainWindow):
 
             self.u_i_pw.plot(_x, _y, symbol=None, pen={"color": "k", "width": 5})
 
-            self.scan_info_tb.setPlainText(make_measurement_information_text(p, r))
+            max_p, max_r = maximum_for_p_r(p, r)
+            self.scan_info_tb.setPlainText(make_measurement_information_text(
+                max_p=max_p,
+                max_r=max_r
+            ))
 
         error_bars = pg.ErrorBarItem(x=u, y=i, width=2 * np.array(u_err), height=2 * np.array(i_err))
         self.u_i_pw.addItem(error_bars)
@@ -315,6 +354,11 @@ class Experiment:
         self.rows = []
         self._scan_thread = None
 
+        self.p_max = 0
+        self.r_max = 0
+        self._max_pow_thread = None
+        self._kill_max_pow_thread = threading.Event()
+
     def scan(self, port: str, start: float, end: float, steps: int, repeat: int,
              e_scanning: threading.Event = None, on_error=None):
         """
@@ -346,6 +390,64 @@ class Experiment:
 
         e_scanning.clear()
 
+    def track_max_power_point(self, port: str, on_error=None):
+        """
+        Performs the series of measurements.
+        :param port: a string specifying the exact device port
+        :param on_error: callback that gets called when an error occurs, error gets passed as an argument
+        """
+
+        try:
+            ports = [
+            "ASRL::SIMPV_BRIGHT::INSTR",
+            "ASRL::SIMPV::INSTR"
+            ]
+            o = 0
+            while not self._kill_max_pow_thread.is_set():
+                port = ports[o]
+                if o == 0:
+                    o = 1
+                else:
+                    o = 0
+                sleep(1)
+                with SolarCellExperiment(port) as m:
+                    try:
+                        rows = [r for r in m.scan_u_i_r(
+                            start_voltage=0,
+                            end_voltage=3.1,
+                            step_size=0.05,
+                            repeat=1
+                        )]
+                        u_w_unc, _, _, v_out = list(zip(*rows))
+                        u, _ = [np.array(a) for a in zip(*u_w_unc)]
+
+                        v_out_start, v_out_end = v_out_of_mosfet_sweetspot(v_out, u)
+
+                        rows = [r for r in m.scan_u_i_r(
+                            start_voltage=v_out_start,
+                            end_voltage=v_out_end,
+                            step_size=0.01,
+                            repeat=3
+                        )]
+                        u_w_unc, i_w_unc, r_w_unc, _ = list(zip(*rows))
+                        u, u_err = [np.array(a) for a in zip(*u_w_unc)]
+                        i, i_err = [np.array(a) for a in zip(*i_w_unc)]
+                        r, _ = [np.array(a) for a in zip(*r_w_unc)]
+
+                        p, _ = p_for_u_i(u, u_err, i, i_err)
+
+                        self.p_max, self.r_max = maximum_for_p_r(p, r)
+
+                    # catch inner errors so that the device gets a chance to close on error
+                    except (VisaIOError, SerialException) as e:
+                        on_error(e)
+        # catch errors while opening the device
+        except SerialException as e:
+            on_error(e)
+
+    def stop_tracking_max_power_point(self):
+        self._kill_max_pow_thread.set()
+
     def start_scan(self, port: str, start: float, end: float, steps: int, repeat: int,
                    e_scanning: threading.Event = None, on_error=None):
         """
@@ -362,6 +464,13 @@ class Experiment:
             target=self.scan, args=(port, start, end, steps, repeat, e_scanning, on_error)
         )
         self._scan_thread.start()
+
+    def start_max_power_point_tracking(self, port: str, on_error=None):
+        self._kill_max_pow_thread.clear()
+        self._max_pow_thread = threading.Thread(
+            target=self.track_max_power_point, args=(port, on_error)
+        )
+        self._max_pow_thread.start()
 
 
 def main():

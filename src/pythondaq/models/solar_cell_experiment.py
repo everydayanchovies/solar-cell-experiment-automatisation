@@ -197,9 +197,7 @@ def maximum_for_p_r(p, r):
     return p_max, r_max
 
 
-def make_measurement_information_text(p, r):
-    max_p, max_r = maximum_for_p_r(p, r)
-
+def make_measurement_information_text(max_p, max_r):
     return f"Maximum power is {max_p:.6f} W when the solar panel senses a resistance of {max_r:.2f} Ohm."
 
 
@@ -286,4 +284,4 @@ class SolarCellExperiment:
 
         self.visa.set_output_voltage(CH_VOUT, 0)
 
-        return True
+        # return True
