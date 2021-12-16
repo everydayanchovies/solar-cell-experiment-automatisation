@@ -164,10 +164,10 @@ def v_out_of_mosfet_sweetspot(v_out, u):
     u_rms = np.sqrt(np.mean(u ** 2))
 
     last_u = u[0]
-    window_len = 10
+    window_len = int(round(len(u) * 0.1))
     for i in range(window_len, len(v_out), window_len):
         if np.abs(last_u - u[i]) > u_rms:
-            return v_out[i] - 0.7, v_out[i] + 0
+            return v_out[i] - 0.5, v_out[i]
 
     raise ValueError("No sweetspot found!")
 
@@ -185,6 +185,22 @@ def u_of_mosfet_sweetspot(v_out, u):
     u_sweetspot_end = mosfet_u_for_v_out(u, v_out, sweetspot_v_out_end)
 
     return u_sweetspot_start, u_sweetspot_end
+
+
+def maximum_for_p_r(p, r):
+    p_max, r_max = 0, 0
+    for i in range(len(p)):
+        if p[i] > p_max:
+            p_max = p[i]
+            r_max = r[i]
+
+    return p_max, r_max
+
+
+def make_measurement_information_text(p, r):
+    max_p, max_r = maximum_for_p_r(p, r)
+
+    return f"Maximum power is {max_p:.6f} W when the solar panel senses a resistance of {max_r:.2f} Ohm."
 
 
 class SolarCellExperiment:

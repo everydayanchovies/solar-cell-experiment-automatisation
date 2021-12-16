@@ -22,7 +22,7 @@
         <item>
          <widget class="QTabWidget" name="tabWidget">
           <property name="currentIndex">
-           <number>0</number>
+           <number>1</number>
           </property>
           <widget class="QWidget" name="u_i_tab">
            <attribute name="title">
@@ -32,7 +32,7 @@
             <item row="0" column="1">
              <widget class="QTabWidget" name="tabWidget_2">
               <property name="currentIndex">
-               <number>1</number>
+               <number>0</number>
               </property>
               <widget class="QWidget" name="tab">
                <attribute name="title">
@@ -58,6 +58,16 @@
             </item>
            </layout>
           </widget>
+          <widget class="QWidget" name="mosfet_tab">
+           <attribute name="title">
+            <string>Mosfet</string>
+           </attribute>
+           <layout class="QGridLayout" name="gridLayout_7">
+            <item row="0" column="0">
+             <widget class="PlotWidget" name="u_u_pw"/>
+            </item>
+           </layout>
+          </widget>
           <widget class="QWidget" name="p_r_tab">
            <attribute name="title">
             <string>P,R-curve</string>
@@ -65,6 +75,16 @@
            <layout class="QGridLayout" name="gridLayout_4">
             <item row="0" column="1">
              <widget class="PlotWidget" name="p_r_pw"/>
+            </item>
+           </layout>
+          </widget>
+          <widget class="QWidget" name="tab_3">
+           <attribute name="title">
+            <string>Scan information</string>
+           </attribute>
+           <layout class="QGridLayout" name="gridLayout_6">
+            <item row="0" column="0">
+             <widget class="QPlainTextEdit" name="scan_info_tb"/>
             </item>
            </layout>
           </widget>

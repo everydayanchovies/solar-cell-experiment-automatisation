@@ -12,7 +12,7 @@ from serial import SerialException
 
 from pythondaq.models.solar_cell_experiment import list_devices, device_info, SolarCellExperiment, p_for_u_i, \
     plot_u_i, plot_p_r, save_data_to_csv, v_out_for_mosfet_u, model_u_i_func, \
-    u_of_mosfet_sweetspot, v_out_of_mosfet_sweetspot, fit_u_i, fit_params_for_u_i_fit
+    u_of_mosfet_sweetspot, v_out_of_mosfet_sweetspot, fit_u_i, fit_params_for_u_i_fit, make_measurement_information_text
 
 
 class UserInterface(QtWidgets.QMainWindow):
@@ -137,12 +137,12 @@ class UserInterface(QtWidgets.QMainWindow):
         if self.autorange_in_progress:
             self.update_autorange()
 
-    def plot(self, fit: bool = False):
+    def plot(self, finished_taking_measurements: bool = False):
         """
         Plots a U,I-graph and the P,R-graphs in the plot widgets.
-        :param fit: whether to perform a fit on the data or not
+        :param finished_taking_measurements: set to true when this is in fact the last measurement
         """
-        if not self.exp.rows or (not self.plot_in_progress and not fit):
+        if not self.exp.rows or (not self.plot_in_progress and not finished_taking_measurements):
             return
 
         u, u_err, i, i_err, r, r_err, p, p_err, v_out = [np.array(u) for u in zip(*self.exp.rows)]
@@ -153,7 +153,7 @@ class UserInterface(QtWidgets.QMainWindow):
 
         self.u_i_pw.plot(u, i, symbol='o', symbolSize=5, pen=None)
 
-        if fit:
+        if finished_taking_measurements:
             u_sweetspot_start, u_sweetspot_end = None, None
 
             try:
@@ -200,8 +200,19 @@ class UserInterface(QtWidgets.QMainWindow):
 
             self.u_i_pw.plot(_x, _y, symbol=None, pen={"color": "k", "width": 5})
 
+            self.scan_info_tb.setPlainText(make_measurement_information_text(p, r))
+
         error_bars = pg.ErrorBarItem(x=u, y=i, width=2 * np.array(u_err), height=2 * np.array(i_err))
         self.u_i_pw.addItem(error_bars)
+
+        self.u_u_pw.clear()
+        self.u_u_pw.setLabel("left", "U (V)")
+        self.u_u_pw.setLabel("bottom", "V_out (V)")
+
+        self.u_u_pw.plot(v_out, u, symbol='o', symbolSize=5, pen=None)
+
+        error_bars = pg.ErrorBarItem(x=v_out, y=u, height=2 * np.array(u_err))
+        self.u_u_pw.addItem(error_bars)
 
         self.p_r_pw.clear()
         self.p_r_pw.setLabel("left", "P (W)")
@@ -232,7 +243,7 @@ class UserInterface(QtWidgets.QMainWindow):
         if self.scan_error or not self.e_scanning.is_set():
             self.plot_in_progress = False
 
-        self.plot(fit=(not self.plot_in_progress))
+        self.plot(finished_taking_measurements=(not self.plot_in_progress))
 
     def save(self):
         """
