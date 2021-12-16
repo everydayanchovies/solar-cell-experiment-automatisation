@@ -240,14 +240,15 @@ class SolarCellExperiment:
         if repeat <= 0:
             return False
 
-        voltage = self.visa.get_input_voltage(CH_U1) * 3.0  # 1:3 voltage splitter
-        current = self.visa.get_input_voltage(CH_U2) / 4.7
-        if current:
-            resistance = voltage / current
+        Upv = self.visa.get_input_voltage(CH_U1) * 3.0  # 1:3 voltage splitter
+        U2 = self.visa.get_input_voltage(CH_U2)
+        Ipv = U2 / 4.7
+        if Ipv:
+            resistance = np.abs((Upv - U2) / Ipv) + 4.7
         else:
             resistance = np.inf
 
-        yield voltage, current, resistance
+        yield Upv, Ipv, resistance
         yield from self.__recursive_u_i_r_measurement(repeat - 1)
 
     def scan_u_i_r(self, start_voltage: float, end_voltage: float, step_size: float, repeat: int = 1):
