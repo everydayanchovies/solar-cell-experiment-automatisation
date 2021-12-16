@@ -102,11 +102,11 @@ def p_for_u_i(u, u_err, i, i_err):
     return p, p_err
 
 
-def v_out_for_u(u_rows, v_out_rows, u):
+def v_out_for_mosfet_u(u_rows, v_out_rows, u):
     return scipy.interpolate.interp1d(u_rows, v_out_rows)(u)
 
 
-def u_for_v_out(u_rows, v_out_rows, v_out):
+def mosfet_u_for_v_out(u_rows, v_out_rows, v_out):
     return scipy.interpolate.interp1d(v_out_rows, u_rows)(v_out)
 
 
@@ -139,16 +139,25 @@ def fit_params_for_u_i(u, i, i_err):
     return fit.params["Il"].value, fit.params["I0"].value, fit.params["n"].value, fit.params["T"].value
 
 
-def find_mosfet_hotspot(v_out, u):
-    u_rms = np.sqrt(np.mean(u**2))
+def v_out_of_mosfet_sweetspot(v_out, u):
+    u_rms = np.sqrt(np.mean(u ** 2))
 
     last_u = u[0]
     window_len = 10
     for i in range(window_len, len(v_out), window_len):
         if np.abs(last_u - u[i]) > u_rms:
-            return v_out[i]
+            return v_out[i] - 0.7, v_out[i] + 0
 
     raise ValueError("No sweetspot found!")
+
+
+def u_of_mosfet_sweetspot(v_out, u):
+    sweetspot_v_out_start, sweetspot_v_out_end = v_out_of_mosfet_sweetspot(v_out, u)
+
+    u_sweetspot_start = mosfet_u_for_v_out(u, v_out, sweetspot_v_out_start)
+    u_sweetspot_end = mosfet_u_for_v_out(u, v_out, sweetspot_v_out_end)
+
+    return u_sweetspot_start, u_sweetspot_end
 
 
 class SolarCellExperiment:

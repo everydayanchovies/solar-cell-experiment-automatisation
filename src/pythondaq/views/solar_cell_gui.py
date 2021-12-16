@@ -2,7 +2,7 @@ import sys
 import threading
 
 import numpy as np
-from PyQt5 import QtWidgets, uic, QtCore
+from PyQt5 import QtWidgets, uic, QtCore, Qt
 import pyqtgraph as pg
 import pkg_resources
 from PyQt5.QtCore import QRegExp
@@ -11,9 +11,8 @@ from pyvisa import VisaIOError
 from serial import SerialException
 
 from pythondaq.models.solar_cell_experiment import list_devices, device_info, SolarCellExperiment, p_for_u_i, \
-    plot_u_i, plot_p_r, save_data_to_csv, plot_u_r, v_out_for_u, fit_params_for_u_i, model_u_i_func
-
-from src.pythondaq.models.solar_cell_experiment import find_mosfet_hotspot, u_for_v_out
+    plot_u_i, plot_p_r, save_data_to_csv, plot_u_r, v_out_for_mosfet_u, fit_params_for_u_i, model_u_i_func, \
+    u_of_mosfet_sweetspot, v_out_of_mosfet_sweetspot
 
 
 class UserInterface(QtWidgets.QMainWindow):
@@ -33,7 +32,7 @@ class UserInterface(QtWidgets.QMainWindow):
 
         # init the devices combo box
         self.devices_cb.addItems(list_devices())
-        self.devices_cb.setCurrentIndex(4)
+        self.devices_cb.setCurrentIndex(5)
 
         # init the start and end input boxes, limit input to floats
         float_only_regex = QRegExp("[+-]?([0-9]*[.])?[0-9]+")
@@ -46,40 +45,48 @@ class UserInterface(QtWidgets.QMainWindow):
         self.repeat_ib.setValidator(QRegExpValidator(int_only_regex))
 
         # couple the buttons to their functions
-        self.scan_btn.clicked.connect(self.perform_scan)
+        self.scan_btn.clicked.connect(self.scan)
         self.save_btn.clicked.connect(self.save)
+        self.autorange_btn.clicked.connect(self.autorange)
 
         # init a timer for reading the measurements
-        self.plot_timer = QtCore.QTimer()
+        self.scan_timer = QtCore.QTimer()
         # define a variable to carry errors across threads
-        self.plot_error = None
+        self.scan_error = None
         # define an event that triggers when the scan is finished
         self.e_scanning = threading.Event()
         # init the experiment class to an object
         self.exp = Experiment()
 
-    def perform_scan(self):
+        self.autorange_in_progress = False
+        self.plot_in_progress = False
+
+    def scan(self):
+        self.plot_in_progress = True
+        self.perform_scan()
+
+    def perform_scan(self, start_override=None, end_override=None, num_samples_override=None, repeat_override=None):
         """
         Takes a series of measurements of the current through and voltage across the LED.
         """
         start = float(self.u_start_ib.text() or 0.0)
-        if not start:
-            start = 0.1
+        if not start or start_override:
+            start = start_override or 0.1
             self.u_start_ib.setText(str(start))
 
         end = float(self.u_end_ib.text() or 0.0)
-        if not end:
-            end = 3.2
+        if not end or end_override:
+            end = end_override or 3.2
             self.u_end_ib.setText(str(end))
 
         num_samples = int(self.num_samples_ib.text() or 0)
-        if not num_samples:
-            num_samples = 10
+        if not num_samples or num_samples_override:
+            num_samples = num_samples_override or 100
             self.num_samples_ib.setText(str(num_samples))
 
         repeat = int(self.repeat_ib.text() or 0)
-        if not repeat:
-            repeat = 2
+        if not repeat or repeat_override:
+            repeat = repeat_override or 3
             self.repeat_ib.setText(str(repeat))
 
         def on_error(e):
@@ -87,25 +94,54 @@ class UserInterface(QtWidgets.QMainWindow):
             Carries the error from the scan thread to the GUI thread.
             :param e: the error
             """
-            self.plot_error = e
+            self.scan_error = e
 
         self.scan_btn.setEnabled(False)
+        self.autorange_btn.setEnabled(False)
 
         port = self.devices_cb.currentText()
         self.exp.start_scan(port, start, end, num_samples, repeat, self.e_scanning, on_error)
 
-        self.plot_timer.timeout.connect(self.update_plot)
-        self.plot_timer.start(10)
+        self.scan_timer.timeout.connect(self.scan_timer_tick)
+        self.scan_timer.start(20)
 
-    def plot(self, rows: list[(float, float, float, float)], fit: bool = False):
+    def scan_timer_tick(self):
+        """
+        This function gets called once every tick of the timer that updates the plot periodically.
+        """
+
+        if self.scan_error or not self.e_scanning.is_set():
+            self.scan_btn.setEnabled(True)
+            self.autorange_btn.setEnabled(True)
+
+        if not self.e_scanning.is_set():
+            self.scan_timer.stop()
+
+        if self.scan_error:
+            self.scan_timer.stop()
+            d = QtWidgets.QMessageBox()
+            d.setIcon(QtWidgets.QMessageBox.Warning)
+            d.setText("Error occurred while taking measurement")
+            d.setInformativeText("Try selecting another device.")
+            d.setDetailedText(str(self.scan_error))
+            d.setStandardButtons(QtWidgets.QMessageBox.Ok)
+            d.exec_()
+            self.scan_error = None
+
+        if self.plot_in_progress:
+            self.update_plot()
+        if self.autorange_in_progress:
+            self.update_autorange()
+
+    def plot(self, fit: bool = False):
         """
         Plots a U,I-graph in the plot widget.
         :param rows: a list of (u, u_err, i, i_err) tuples
         """
-        if not rows:
+        if not self.exp.rows or (not self.plot_in_progress and not fit):
             return
 
-        u, u_err, i, i_err, r, r_err, p, p_err, v_out = [np.array(u) for u in zip(*rows)]
+        u, u_err, i, i_err, r, r_err, p, p_err, v_out = [np.array(u) for u in zip(*self.exp.rows)]
 
         self.u_i_pw.clear()
         self.u_i_pw.setLabel("left", "I (A)")
@@ -114,17 +150,22 @@ class UserInterface(QtWidgets.QMainWindow):
         self.u_i_pw.plot(u, i, symbol='o', symbolSize=5, pen=None)
 
         if fit:
-            v_out_mosfet_hotspot = find_mosfet_hotspot(v_out, u)
-
-            u_hotspot_start = u_for_v_out(u, v_out, v_out_mosfet_hotspot - 0.5)
-            u_hotspot_end = u_for_v_out(u, v_out, v_out_mosfet_hotspot + 0.5)
+            u_sweetspot_start, u_sweetspot_end = None, None
+            if self.mosfet_trim_cb.isChecked():
+                u_sweetspot_start, u_sweetspot_end = u_of_mosfet_sweetspot(v_out, u)
 
             _u, _i, _i_err = [], [], []
             for j in range(len(u)):
-                if u_hotspot_start > u[j] > u_hotspot_end and i_err[j] != 0:
-                    _u.append(u[j])
-                    _i.append(i[j])
-                    _i_err.append(i_err[j])
+                # TODO check i_err != 0??
+                if i_err[j] == 0:
+                    continue
+                if np.isnan(u[j]) or np.isnan(i[j]) or np.isnan(i_err[j]):
+                    continue
+                if u_sweetspot_start and u_sweetspot_end and u_sweetspot_start < u[j] < u_sweetspot_end:
+                    continue
+                _u.append(u[j])
+                _i.append(i[j])
+                _i_err.append(i_err[j])
 
             _u = np.array(_u)
             _i = np.array(_i)
@@ -172,29 +213,10 @@ class UserInterface(QtWidgets.QMainWindow):
         self.p_r_pw.addItem(error_bars)
 
     def update_plot(self):
-        self.plot(self.exp.rows)
+        if self.scan_error or not self.e_scanning.is_set():
+            self.plot_in_progress = False
 
-        """
-        This function gets called once every tick of the timer that updates the plot periodically.
-        """
-        if not self.e_scanning.is_set():
-            self.scan_btn.setEnabled(True)
-            self.plot_timer.stop()
-
-            self.plot(self.exp.rows, fit=True)
-
-        if self.plot_error:
-            self.scan_btn.setEnabled(True)
-            self.plot_timer.stop()
-            d = QtWidgets.QMessageBox()
-            d.setIcon(QtWidgets.QMessageBox.Warning)
-            d.setText("Error occurred while taking measurement")
-            d.setInformativeText("Try selecting another device.")
-            d.setDetailedText(str(self.plot_error))
-            d.setStandardButtons(QtWidgets.QMessageBox.Ok)
-            d.exec_()
-            self.plot_error = None
-
+        self.plot(fit=(not self.plot_in_progress))
 
     def save(self):
         """
@@ -203,6 +225,32 @@ class UserInterface(QtWidgets.QMainWindow):
         filepath, _ = QtWidgets.QFileDialog.getSaveFileName(filter="CSV files (*.csv)")
 
         save_data_to_csv(filepath, ["U", "U_err", "I", "I_err", "R", "R_err", "P", "P_err", "V_out"], self.exp.rows)
+
+    def autorange(self):
+        self.mosfet_trim_cb.setChecked(False)
+
+        self.autorange_in_progress = True
+
+        self.perform_scan(start_override=0.1,
+                          end_override=3.2,
+                          num_samples_override=100,
+                          repeat_override=3)
+
+    def update_autorange(self):
+        if self.scan_error or not self.e_scanning.is_set():
+            self.autorange_in_progress = False
+
+        if self.e_scanning.is_set():
+            return
+
+        u, u_err, i, i_err, r, r_err, p, p_err, v_out = [np.array(u) for u in zip(*self.exp.rows)]
+
+        sweetspot_v_out_start, sweetspot_v_out_end = v_out_of_mosfet_sweetspot(v_out, u)
+
+        print(sweetspot_v_out_start, sweetspot_v_out_end)
+
+        self.u_start_ib.setText(f"{sweetspot_v_out_start:.2f}")
+        self.u_end_ib.setText(f"{sweetspot_v_out_end:.2f}")
 
 
 class Experiment:
@@ -246,7 +294,7 @@ class Experiment:
         except SerialException as e:
             on_error(e)
 
-        v_out = v_out_for_u([u for u, _, _, _, _, _, _, _, _ in self.rows], [v_out for _, _, _, _, _, _, _, _, v_out in self.rows], 3)
+        v_out = v_out_for_mosfet_u([u for u, _, _, _, _, _, _, _, _ in self.rows], [v_out for _, _, _, _, _, _, _, _, v_out in self.rows], 3)
 
         e_scanning.clear()
 

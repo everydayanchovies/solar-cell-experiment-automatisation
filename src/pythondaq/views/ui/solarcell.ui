@@ -27,6 +27,16 @@
          </widget>
         </item>
         <item>
+         <widget class="QCheckBox" name="mosfet_trim_cb">
+          <property name="text">
+           <string>Trim data to mosfet dynamic range prior to fitting</string>
+          </property>
+          <property name="checked">
+           <bool>true</bool>
+          </property>
+         </widget>
+        </item>
+        <item>
          <widget class="QCheckBox" name="max_p_tracking_cb">
           <property name="text">
            <string>Active maximum power point tracking</string>
@@ -34,7 +44,14 @@
          </widget>
         </item>
         <item>
-         <layout class="QHBoxLayout" name="horizontalLayout_2" stretch="0,0,0">
+         <layout class="QHBoxLayout" name="horizontalLayout_2" stretch="0,0,0,0">
+          <item>
+           <widget class="QPushButton" name="autorange_btn">
+            <property name="text">
+             <string>Auto range</string>
+            </property>
+           </widget>
+          </item>
           <item>
            <layout class="QVBoxLayout" name="verticalLayout_3">
             <item>
@@ -180,7 +197,7 @@
       <item>
        <widget class="QTabWidget" name="tabWidget">
         <property name="currentIndex">
-         <number>1</number>
+         <number>0</number>
         </property>
         <widget class="QWidget" name="u_i_tab">
          <attribute name="title">
