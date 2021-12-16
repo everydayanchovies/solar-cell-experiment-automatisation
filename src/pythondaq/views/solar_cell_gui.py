@@ -173,6 +173,7 @@ class UserInterface(QtWidgets.QMainWindow):
 
         if self.scan_error:
             self.scan_timer.stop()
+            self.autorange_in_progress = False
 
             d = QtWidgets.QMessageBox()
             d.setIcon(QtWidgets.QMessageBox.Warning)
